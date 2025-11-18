@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDomain } from '../context/DomainContext';
-import { Regional, Congregation, PixPurpose, State, City } from '../domain/types';
+import { Regional, Congregation, PixPurpose } from '../domain/types';
 import { Plus, Download, Upload, Search } from 'lucide-react';
 import TextField from '../components/TextField';
 import { v4 as uuidv4 } from 'uuid';
@@ -232,7 +232,6 @@ const AdminTab: React.FC = () => {
             title={`${congregation.name} (${congregation.shortPrefix}${congregation.ccbSuffix})`}
             subtitle={`Regional: ${regional?.name} | Cidade: ${city?.name}`}
             onDelete={(id) => domain.setCongregations(domain.congregations.filter(k => k.id !== id))}
-            // onPreview={handlePreviewCongregation} // Não implementado aqui, mas disponível
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <TextField label="Nome da Igreja" value={congregation.name} onChange={e => updateCongregation(congregation.id, 'name', e.target.value)} />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from './components/Header';
 import IndividualTab from './tabs/IndividualTab';
@@ -29,14 +28,25 @@ const defaultFormData: PixData = {
     message: "",
 };
 
+// Componente AppContent modificado para incluir o estado de Preview
 const AppContent: React.FC = () => {
     const [theme, setTheme] = useLocalStorage('theme', 'dark');
     const [activeTab, setActiveTab] = useState('individual');
+    
+    // Estado do Formulário
     const [formData, setFormData] = useLocalStorage<PixData>('formData', defaultFormData);
+    
+    // Estado Global para Preview (Corrigindo o Bug de Atualização Lenta)
+    const [previewData, setPreviewData] = useState<PixData | null>(formData);
+    const [previewTemplate, setPreviewTemplate] = useState<Template>(ccbClassicTemplate);
+    
     const [logo, setLogo] = useLocalStorage<string | null>('logo', null);
-    // Presets are now less relevant with the new Admin tab, but kept for BatchTab compat if needed
-    const [presets, setPresets] = useLocalStorage<Preset[]>('presets', []); 
-    const [template, setTemplate] = useLocalStorage<Template>('template', ccbClassicTemplate);
+    
+    // Função para as abas Individual e Batch chamarem para forçar a atualização do preview
+    const handlePreviewData = useCallback((data: PixData | null, template: Template) => {
+        setPreviewData(data);
+        setPreviewTemplate(template);
+    }, []);
 
     useEffect(() => {
         document.documentElement.className = theme;
@@ -55,41 +65,43 @@ const AppContent: React.FC = () => {
         }
     }, [setLogo]);
 
-    const pixDataForPayload = useMemo(() => getPixDataFromForm(template, formData), [template, formData]);
+    // Recalcula o payload e erros com base no ESTADO DE PREVIEW (previewData)
+    const pixDataForPayload = useMemo(() => getPixDataFromForm(previewTemplate, previewData || {} as PixData), [previewTemplate, previewData]);
     const errors = useMemo(() => validatePixData(pixDataForPayload), [pixDataForPayload]);
     const payload = useMemo(() => {
         return Object.keys(errors).length === 0 ? generatePixPayload(pixDataForPayload) : null;
     }, [errors, pixDataForPayload]);
 
+    // Recalcula Warnings
     const warnings = useMemo((): TemplateWarning[] => {
         const warns: TemplateWarning[] = [];
         const combinedText =
-            (template?.blocks || [])
+            (previewTemplate?.blocks || [])
                 .flatMap(b => (b.type === 'text' ? [b.text] : []))
                 .join(' ') +
             ' ' +
-            Object.values(template?.assets || {})
+            Object.values(previewTemplate?.assets || {})
                 .map(a => (a as Asset).source)
                 .join(' ');
         
         const placeholders = combinedText.match(/\{\{(\w+)\}\}/g) || [];
         for (const p of placeholders) {
             const key = p.replace(/\{|\}/g, '');
-            if (!formData[key]) {
+            if (!previewData?.[key as keyof PixData]) {
                 warns.push({ type: 'placeholder', key });
             }
         }
         return warns;
-    }, [template, formData]);
+    }, [previewTemplate, previewData]);
     
-    const handleApplyPreset = useCallback((id: string) => {
-      const preset = presets.find(p => p.id === id);
-      if (preset) {
-        setFormData(prev => ({ ...prev, ...preset.formValues }));
-        alert(`Cadastro "${preset.label}" aplicado!`);
-        setActiveTab('individual');
-      }
-    }, [presets, setFormData]);
+    // Handler para Template Tab
+    const handleSelectTemplate = (t: Template) => {
+        setPreviewTemplate(t);
+        // Atualiza o template no IndividualTab/FormData também se necessário
+        // Neste modelo, o previewTemplate é o mestre.
+        // O previewData atual será re-renderizado com o novo template.
+    };
+
 
     return (
         <div className="bg-background text-foreground min-h-screen">
@@ -102,24 +114,36 @@ const AppContent: React.FC = () => {
                     <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === 'templates' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>Templates</button>
                 </div>
 
+                {/* Individual Tab (Passando o handler de preview) */}
                 {activeTab === 'individual' && (
                     <IndividualTab 
                         formData={formData} 
                         setFormData={setFormData}
-                        errors={errors} 
+                        errors={errors} // Erros e Payload baseados no Preview
                         payload={payload}
-                        template={template}
+                        template={previewTemplate}
                         logo={logo}
                         warnings={warnings}
-                        presets={presets}
-                        onApplyPreset={handleApplyPreset}
+                        onPreviewData={handlePreviewData}
                     />
                 )}
-                {activeTab === 'batch' && <BatchTab baseFormData={formData} template={template} logo={logo} presets={presets} />}
+                
+                {/* Batch Tab (Passando o handler de preview) */}
+                {activeTab === 'batch' && (
+                    <BatchTab 
+                        template={previewTemplate} 
+                        logo={logo} 
+                        onPreviewData={handlePreviewData}
+                    />
+                )}
+
+                {/* Admin Tab */}
                 {activeTab === 'admin' && <AdminTab />} 
+                
+                {/* Templates Tab (Mantém a lógica de logo e template) */}
                 {activeTab === 'templates' && (
                     <div className="bg-card p-6 rounded-lg border border-border shadow-sm space-y-6">
-                        <TemplatesTab templates={allTemplates} selectedTemplate={template} onSelectTemplate={setTemplate} />
+                        <TemplatesTab templates={allTemplates} selectedTemplate={previewTemplate} onSelectTemplate={handleSelectTemplate} />
                          <div className="space-y-2">
                             <label className="text-sm font-medium">Logo (Opcional)</label>
                             <Dropzone
@@ -135,6 +159,24 @@ const AppContent: React.FC = () => {
                                     <button onClick={() => setLogo(null)} className="absolute top-6 left-0 h-16 w-full bg-black/50 text-white rounded opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs">Remover</button>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Card, QR e Payload Previews Globais */}
+                {activeTab !== 'templates' && (
+                    <div className="sticky top-24 lg:col-span-1 hidden lg:block">
+                        <h3 className="text-lg font-bold mb-4">Preview Global</h3>
+                        <CardPreview
+                            template={previewTemplate}
+                            formData={previewData || {} as PixData}
+                            logo={logo}
+                            payload={payload}
+                            warnings={warnings}
+                        />
+                        <div className="mt-8 space-y-4">
+                            <QrPreview qrCodeValue={payload || undefined} txid={previewData?.txid} />
+                            <PayloadPreview payload={payload || undefined} txid={previewData?.txid} />
                         </div>
                     </div>
                 )}

@@ -14,6 +14,7 @@ import { useDomain } from '../context/DomainContext';
 import { mapProfileToPixData, resolveProfile } from '../utils/domainMapper';
 import { normalizeValue } from '../utils/textUtils';
 import TextField from '../components/TextField';
+import { v4 as uuidv4 } from 'uuid';
 
 interface BatchTabProps {
   template: Template;
@@ -27,7 +28,6 @@ type BatchRow = {
   status: 'pending' | 'success' | 'error';
   error?: string;
   txid?: string;
-  originalCongregationId?: string; // Para o novo modo
 };
 
 const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) => {
@@ -44,6 +44,8 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
   const [selectedRegionalId, setSelectedRegionalId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
   const [selectedCongregations, setSelectedCongregations] = useState<string[]>([]);
+  const [selectedPurposeId, setSelectedPurposeId] = useState('');
+
 
   // Base data for CSV mode
   const baseData: PixData = useMemo(() => {
@@ -77,7 +79,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
       complete: (results) => {
         const newRows: BatchRow[] = results.data.map((csvRowArray, index) => {
             const amount = csvRowArray[0] || '';
-            const messageOverride = csvRowArray[1]; // Nova coluna opcional para mensagem
+            const messageOverride = csvRowArray[1]; 
 
             const amountField = template?.formSchema?.find(f => f.id === 'amount');
             const normalizedAmount = normalizeValue(amount, amountField);
@@ -99,17 +101,35 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
     });
   };
 
+  const handleFileDrop = (files: File[]) => {
+    if (files[0]) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        setTextInput(text);
+        if(resolvedProfile) parseAndSetRows(text);
+      };
+      reader.readAsText(files[0]);
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setTextInput(val);
+    if(resolvedProfile) parseAndSetRows(val);
+  };
+
+
   // Modo Série (Gera as linhas a partir das Igrejas Selecionadas)
   useEffect(() => {
-    if (mode === 'series' && selectedCongregations.length > 0) {
+    if (mode === 'series' && selectedCongregations.length > 0 && selectedPurposeId) {
         const newRows: BatchRow[] = selectedCongregations.map(congId => {
             const cong = domain.congregations.find(c => c.id === congId)!;
             const regional = domain.regionals.find(r => r.id === cong.regionalId)!;
             const city = domain.cities.find(c => c.id === cong.cityId)!;
-            const purpose = domain.purposes[0]; // Usa a primeira finalidade como padrão
-
+            
             // Resolve o perfil completo para a Congregação
-            const profile = resolveProfile(regional.stateId, regional.id, city.id, congId, purpose.id, domain);
+            const profile = resolveProfile(regional.stateId, regional.id, city.id, congId, selectedPurposeId, domain);
             
             if (!profile) return null;
 
@@ -119,7 +139,6 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
                 id: uuidv4(), 
                 data: rowData, 
                 status: 'pending',
-                originalCongregationId: congId
             };
         }).filter((r): r is BatchRow => r !== null);
         
@@ -127,7 +146,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
     } else if (mode === 'series') {
         setRows([]);
     }
-  }, [selectedCongregations, domain, mode]);
+  }, [selectedCongregations, selectedPurposeId, domain, mode]);
 
 
   // --- Lógica de Processamento ---
@@ -136,28 +155,63 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
     setIsProcessing(true);
     setProgress(0);
     const zip = new JSZip();
-    // ... (mesma lógica de geração e zipping) ...
-    // ... (código simplificado para foco na UI/Lógica de Negócio) ...
     
-    // Simulação da lógica de processamento
+    // Setup canvas invisível (necessário para o drawCardOnCanvas)
+    const canvas = document.createElement('canvas');
+    canvas.width = template.canvas.width;
+    canvas.height = template.canvas.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+
     for (let i = 0; i < rows.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 50)); // Simula processamento
-        const row = rows[i];
+      const row = rows[i];
+      const finalData = row.data;
+      const pixDataForPayload = getPixDataFromForm(template, finalData);
+      const errors = validatePixData(pixDataForPayload);
+
+      if (Object.keys(errors).length > 0) {
+        const errorString = Object.values(errors).join(' ');
+        setRows(produce(draft => { draft[i].status = 'error'; draft[i].error = errorString; }));
+        continue;
+      }
+
+      try {
+        const payload = generatePixPayload(pixDataForPayload);
+        const qrCodeDataUrl = await QRCode.toDataURL(payload, { errorCorrectionLevel: 'H', margin: 2, scale: 8 });
         
-        // Simula sucesso
-        setRows(produce(draft => { 
-            draft[i].status = 'success'; 
-            draft[i].txid = row.data.txid; 
-        }));
-        setProgress(((i + 1) / rows.length) * 100);
+        // Simulação do processamento (Remover em produção)
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+        
+        // Gera o cartão
+        await drawCardOnCanvas(ctx, template, finalData, logo, qrCodeDataUrl);
+        
+        const pngBlob: Blob | null = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        
+        if (pngBlob) {
+            // Nome do arquivo único
+          const fileName = `card_${pixDataForPayload.txid}_${i+1}.png`;
+          zip.file(fileName, pngBlob);
+          
+          setRows(produce(draft => { draft[i].status = 'success'; draft[i].txid = pixDataForPayload.txid; }));
+        }
+
+      } catch (err: any) {
+        setRows(produce(draft => { draft[i].status = 'error'; draft[i].error = err.message || "Erro desconhecido"; }));
+      }
+      setProgress(((i + 1) / rows.length) * 100);
     }
-    
-    // Simulação de download
-    // const zipBlob = await zip.generateAsync({ type: 'blob' });
-    // URL.revokeObjectURL(url);
+
+    // Geração do ZIP
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lote_pix_${Date.now()}.zip`;
+    link.click();
+    URL.revokeObjectURL(url);
     
     setIsProcessing(false);
-    alert(`Processamento de ${rows.length} itens concluído!`);
   };
 
   // Componente de seleção em série (checkboxes)
@@ -185,19 +239,29 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-medium mb-1">Regional</label>
-                    <select value={selectedRegionalId} onChange={e => { setSelectedRegionalId(e.target.value); setSelectedCityId(''); }} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    <select value={selectedRegionalId} onChange={e => { setSelectedRegionalId(e.target.value); setSelectedCityId(''); setSelectedCongregations([]); }} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
                         <option value="">Selecione a Regional...</option>
                         {domain.regionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                 </div>
                 <div>
                     <label className="block text-xs font-medium mb-1">Cidade</label>
-                    <select value={selectedCityId} onChange={e => setSelectedCityId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" disabled={!selectedRegionalId}>
+                    <select value={selectedCityId} onChange={e => { setSelectedCityId(e.target.value); setSelectedCongregations([]); }} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" disabled={!selectedRegionalId}>
                         <option value="">Selecione a Cidade...</option>
                         {domain.cities.filter(c => c.regionalId === selectedRegionalId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
             </div>
+
+            {/* Finalidade */}
+             <div>
+                <label className="block text-xs font-medium mb-1">Finalidade Base</label>
+                <select value={selectedPurposeId} onChange={e => setSelectedPurposeId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" disabled={!selectedCityId}>
+                    <option value="">Selecione a Finalidade...</option>
+                    {domain.purposes.map(p => <option key={p.id} value={p.id}>{p.displayLabel}</option>)}
+                </select>
+            </div>
+
 
             {selectedCityId && (
                 <div className="border rounded p-3 max-h-60 overflow-y-auto space-y-2">
@@ -209,6 +273,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
                                     type="checkbox" 
                                     checked={selectedCongregations.includes(cong.id)}
                                     onChange={() => handleToggleCongregation(cong.id)}
+                                    disabled={!selectedPurposeId}
                                 />
                                 {cong.name} ({cong.shortPrefix}{cong.ccbSuffix})
                             </label>
@@ -300,43 +365,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
         {mode === 'series' && renderSeriesSelector()}
       </div>
       
-      <div className="space-y-8 sticky top-24">
-        <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Processamento</h3>
-            
-            <div className="mb-4 text-sm">
-                <p><strong>Regional Base:</strong> {resolvedProfile?.regional.name || (selectedRegionalId && domain.regionals.find(r => r.id === selectedRegionalId)?.name) || '-'}</p>
-                <p><strong>Itens detectados:</strong> {rows.length}</p>
-            </div>
-
-            {rows.length > 0 ? (
-            <div className="space-y-4">
-                <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
-                {rows.map(row => (
-                    <div key={row.id} className="text-xs p-2 border rounded-md flex justify-between items-center">
-                    <span className="font-mono truncate">
-                        {row.data.neighborhood}: {row.data.amount ? `R$ ${row.data.amount}` : row.data.displayValue} 
-                    </span>
-                    {row.status === 'success' && <Check className="w-4 h-4 text-green-500" />}
-                    {row.status === 'error' && <X className="w-4 h-4 text-destructive" title={row.error} />}
-                    </div>
-                ))}
-                </div>
-                <button
-                onClick={startBatchProcess}
-                disabled={isProcessing}
-                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 disabled:opacity-50"
-                >
-                {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {Math.round(progress)}%</> : `Gerar ${rows.length} Cartões`}
-                </button>
-            </div>
-            ) : (
-            <div className="text-center text-sm text-muted-foreground py-10">
-                Aguardando seleção/dados...
-            </div>
-            )}
-        </div>
-      </div>
+      {/* Coluna de Previews (Será movida para o App.tsx) */}
     </div>
   );
 };
