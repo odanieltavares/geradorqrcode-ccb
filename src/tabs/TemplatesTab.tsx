@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Template } from '../types';
 
@@ -24,6 +23,9 @@ const TemplatesTab: React.FC<TemplatesTabProps> = ({ templates, selectedTemplate
           >
             <h3 className="font-semibold text-foreground">{template.name}</h3>
             <p className="text-xs text-muted-foreground">Versão: {template.version}</p>
+            <div className="mt-2 h-24 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">
+                Preview Indisponível
+            </div>
           </div>
         ))}
       </div>

@@ -1,17 +1,59 @@
 import React, { useState } from 'react';
 import { useDomain } from '../context/DomainContext';
 import { PixKey } from '../domain/types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Download, Upload } from 'lucide-react';
 import TextField from '../components/TextField';
 import { v4 as uuidv4 } from 'uuid';
 import { formatCnpj, unformatCnpj, applyMask, stripNonNumeric } from '../utils/masks';
 
-// --- Admin Tab Component ---
 const AdminTab: React.FC = () => {
   const domain = useDomain();
   const [activeSection, setActiveSection] = useState<string>('keys');
 
-  // --- Actions Helpers ---
+  // --- Backup Functions ---
+  const handleExportDomain = () => {
+    const fullData = {
+        states: domain.states,
+        regionals: domain.regionals,
+        cities: domain.cities,
+        congregations: domain.congregations,
+        banks: domain.banks,
+        pixKeys: domain.pixKeys,
+        identifiers: domain.identifiers,
+        purposes: domain.purposes
+    };
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(fullData, null, 2))}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = "backup_sistema_pix.json";
+    link.click();
+  };
+
+  const handleImportDomain = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          try {
+              const data = JSON.parse(e.target?.result as string);
+              if (data.states) domain.setStates(data.states);
+              if (data.regionals) domain.setRegionals(data.regionals);
+              if (data.cities) domain.setCities(data.cities);
+              if (data.congregations) domain.setCongregations(data.congregations);
+              if (data.banks) domain.setBanks(data.banks);
+              if (data.pixKeys) domain.setPixKeys(data.pixKeys);
+              if (data.identifiers) domain.setIdentifiers(data.identifiers);
+              if (data.purposes) domain.setPurposes(data.purposes);
+              alert('Backup restaurado com sucesso!');
+          } catch (err) {
+              alert('Erro ao processar arquivo de backup.');
+          }
+      };
+      reader.readAsText(file);
+  };
+
+
+  // --- Helpers ---
   const addPixKey = () => {
     const newItem: PixKey = {
       id: uuidv4(), type: 'CNPJ', cnpj: '', ownerName: 'Novo Titular',
@@ -24,7 +66,6 @@ const AdminTab: React.FC = () => {
     domain.setPixKeys(domain.pixKeys.map(k => k.id === id ? { ...k, [field]: value } : k));
   };
 
-  // Renderização da lista de Chaves com Máscaras
   const renderPixKeys = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
@@ -55,8 +96,8 @@ const AdminTab: React.FC = () => {
               </div>
               <TextField 
                 label="CNPJ" 
-                value={formatCnpj(key.cnpj)} // Exibe formatado
-                onChange={e => updatePixKey(key.id, 'cnpj', unformatCnpj(e.target.value))} // Salva limpo
+                value={formatCnpj(key.cnpj)}
+                onChange={e => updatePixKey(key.id, 'cnpj', unformatCnpj(e.target.value))}
                 placeholder="00.000.000/0000-00"
                 maxLength={18}
               />
@@ -95,7 +136,7 @@ const AdminTab: React.FC = () => {
     </div>
   );
 
-  // Lista Genérica simples para outras entidades (Regional, Cidade, etc)
+  // Listas Genéricas
   const GenericList = ({ title, items, onDelete, renderItem, onAdd }: any) => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -113,12 +154,22 @@ const AdminTab: React.FC = () => {
 
   return (
     <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
-      <h2 className="text-xl font-bold mb-6">Administração de Dados</h2>
+      <div className="flex justify-between items-start mb-6">
+          <h2 className="text-xl font-bold">Administração de Dados</h2>
+          <div className="flex gap-2">
+             <input type="file" id="backup-upload" className="hidden" accept=".json" onChange={handleImportDomain} />
+             <button onClick={() => document.getElementById('backup-upload')?.click()} className="flex items-center gap-2 text-sm border px-3 py-2 rounded hover:bg-secondary"><Upload size={16}/> Restaurar</button>
+             <button onClick={handleExportDomain} className="flex items-center gap-2 text-sm border px-3 py-2 rounded hover:bg-secondary"><Download size={16}/> Backup</button>
+          </div>
+      </div>
       
       <div className="flex gap-2 mb-6 border-b overflow-x-auto pb-2">
-        {['keys', 'identifiers', 'purposes'].map(tab => (
+        {['keys', 'regionals', 'cities', 'congregations', 'identifiers', 'purposes'].map(tab => (
           <button key={tab} onClick={() => setActiveSection(tab)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap rounded-md ${activeSection === tab ? 'bg-secondary' : ''}`}>
             {tab === 'keys' && 'Chaves PIX'}
+            {tab === 'regionals' && 'Regionais'}
+            {tab === 'cities' && 'Cidades'}
+            {tab === 'congregations' && 'Igrejas'}
             {tab === 'identifiers' && 'Identificadores'}
             {tab === 'purposes' && 'Finalidades'}
           </button>
@@ -126,26 +177,11 @@ const AdminTab: React.FC = () => {
       </div>
 
       {activeSection === 'keys' && renderPixKeys()}
-      
-      {activeSection === 'identifiers' && (
-        <GenericList 
-          title="Identificadores" items={domain.identifiers}
-          onDelete={(id: string) => domain.setIdentifiers(domain.identifiers.filter(i => i.id !== id))}
-          onAdd={() => { const code = prompt("Código (ex: JB0059):"); if(code) domain.setIdentifiers([...domain.identifiers, { id: uuidv4(), code, congregationId: '', pixKeyId: '', txidBase: code, strategy: 'TXID_ONLY', active: true }]); }}
-          renderItem={(i: any) => <span>{i.code} (Base: {i.txidBase})</span>}
-        />
-      )}
-
-      {activeSection === 'purposes' && (
-        <GenericList 
-          title="Finalidades" items={domain.purposes}
-          onDelete={(id: string) => domain.setPurposes(domain.purposes.filter(i => i.id !== id))}
-          onAdd={() => { const name = prompt("Nome:"); if(name) domain.setPurposes([...domain.purposes, { id: uuidv4(), name, pixIdentifierId: '', displayLabel: name, messageTemplate: name, txidSuffix: 'G01', active: true }]); }}
-          renderItem={(p: any) => <span>{p.displayLabel}</span>}
-        />
-      )}
-      
-      <p className="mt-8 text-xs text-muted-foreground">Nota: Use o console/código para editar Regionais/Cidades neste MVP, ou adicione os formulários correspondentes acima.</p>
+      {activeSection === 'identifiers' && <GenericList title="Identificadores" items={domain.identifiers} onDelete={(id: string) => domain.setIdentifiers(domain.identifiers.filter(i => i.id !== id))} onAdd={() => { const code = prompt("Código (ex: JB0059):"); if(code) domain.setIdentifiers([...domain.identifiers, { id: uuidv4(), code, congregationId: '', pixKeyId: '', txidBase: code, strategy: 'TXID_ONLY', active: true }]); }} renderItem={(i: any) => <span>{i.code} (Base: {i.txidBase})</span>} />}
+      {activeSection === 'purposes' && <GenericList title="Finalidades" items={domain.purposes} onDelete={(id: string) => domain.setPurposes(domain.purposes.filter(i => i.id !== id))} onAdd={() => { const name = prompt("Nome:"); if(name) domain.setPurposes([...domain.purposes, { id: uuidv4(), name, pixIdentifierId: '', displayLabel: name, messageTemplate: name, txidSuffix: 'G01', active: true }]); }} renderItem={(p: any) => <span>{p.displayLabel}</span>} />}
+      {activeSection === 'regionals' && <GenericList title="Regionais" items={domain.regionals} onDelete={(id: string) => domain.setRegionals(domain.regionals.filter(i => i.id !== id))} onAdd={() => { const name = prompt("Nome:"); if(name) domain.setRegionals([...domain.regionals, { id: uuidv4(), name, stateId: domain.states[0].id }]); }} renderItem={(p: any) => <span>{p.name}</span>} />}
+      {activeSection === 'cities' && <GenericList title="Cidades" items={domain.cities} onDelete={(id: string) => domain.setCities(domain.cities.filter(i => i.id !== id))} onAdd={() => { const name = prompt("Nome:"); if(name) domain.setCities([...domain.cities, { id: uuidv4(), name, regionalId: domain.regionals[0].id }]); }} renderItem={(p: any) => <span>{p.name}</span>} />}
+      {activeSection === 'congregations' && <GenericList title="Congregações" items={domain.congregations} onDelete={(id: string) => domain.setCongregations(domain.congregations.filter(i => i.id !== id))} onAdd={() => { const name = prompt("Nome:"); if(name) domain.setCongregations([...domain.congregations, { id: uuidv4(), name, cityId: domain.cities[0].id, ccbOfficialCode: '', ccbSuffix: '', shortPrefix: '', isCentral: false }]); }} renderItem={(p: any) => <span>{p.name}</span>} />}
     </div>
   );
 };
