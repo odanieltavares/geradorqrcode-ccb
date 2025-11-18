@@ -1,6 +1,7 @@
+// NOVO CÓDIGO PARA index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// Corrija o caminho para apontar para a nova localização do arquivo
+// Corrija o caminho para a nova localização do arquivo App.tsx
 import App from './src/App'; 
 
 const rootElement = document.getElementById('root');

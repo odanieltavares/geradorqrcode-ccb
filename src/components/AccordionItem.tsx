@@ -1,5 +1,6 @@
+// src/components/AccordionItem.tsx
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Eye, Trash2, Edit } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Eye } from 'lucide-react';
 
 interface AccordionItemProps {
   id: string;

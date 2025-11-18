@@ -1,3 +1,4 @@
+// src/tabs/TemplatesTab.tsx
 import React from 'react';
 import { Template } from '../types';
 
