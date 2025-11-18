@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// IMPORTAÇÕES CORRIGIDAS: Adicionando CardPreview e outros componentes genéricos
 import Header from './components/Header';
+import CardPreview from './components/CardPreview'; // <-- CORREÇÃO
+import QrPreview from './components/QrPreview';
+import PayloadPreview from './components/PayloadPreview';
+import { Dropzone } from './components/Dropzone';
+
 import IndividualTab from './tabs/IndividualTab';
 import BatchTab from './tabs/BatchTab';
 import AdminTab from './tabs/RegistrationsTab';
 import TemplatesTab from './tabs/TemplatesTab';
-import { Dropzone } from './components/Dropzone';
+
 import useLocalStorage from './hooks/useLocalStorage';
-import { PixData, Template, TemplateWarning, Preset, Asset } from './types';
+import { PixData, Template, TemplateWarning, Asset } from './types';
 import { validatePixData, generatePixPayload } from './lib/pix';
 import { ccbClassicTemplate, allTemplates } from './templates/presets';
 import { getPixDataFromForm } from './utils/pixGenerator';
@@ -33,7 +39,7 @@ const AppContent: React.FC = () => {
     const [theme, setTheme] = useLocalStorage('theme', 'dark');
     const [activeTab, setActiveTab] = useState('individual');
     
-    // Estado do Formulário
+    // Estado do Formulário (mantido para a aba individual)
     const [formData, setFormData] = useLocalStorage<PixData>('formData', defaultFormData);
     
     // Estado Global para Preview (Corrigindo o Bug de Atualização Lenta)
@@ -97,9 +103,8 @@ const AppContent: React.FC = () => {
     // Handler para Template Tab
     const handleSelectTemplate = (t: Template) => {
         setPreviewTemplate(t);
-        // Atualiza o template no IndividualTab/FormData também se necessário
-        // Neste modelo, o previewTemplate é o mestre.
-        // O previewData atual será re-renderizado com o novo template.
+        // Atualiza o previewData com o novo template, mas mantém os dados
+        handlePreviewData(previewData, t);
     };
 
 

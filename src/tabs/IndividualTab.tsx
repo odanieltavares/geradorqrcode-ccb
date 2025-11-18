@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CardPreview from '../components/CardPreview';
+import CardPreview from '../components/CardPreview'; // <-- Import necessário!
 import QrPreview from '../components/QrPreview';
 import PayloadPreview from '../components/PayloadPreview';
 import { PixData, FormErrors, Template, TemplateWarning } from '../types';
@@ -8,6 +8,7 @@ import HierarchySelector from '../components/HierarchySelector';
 import { ResolvedPixProfile } from '../domain/types';
 import { mapProfileToPixData } from '../utils/domainMapper';
 import { formatValue, normalizeValue } from '../utils/textUtils';
+
 
 interface IndividualTabProps {
   formData: PixData;
