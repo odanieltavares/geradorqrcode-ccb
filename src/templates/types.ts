@@ -1,130 +1,77 @@
-export interface PixData {
-  [key: string]: string | undefined;
-}
-
-export type FormErrors = {
-  [key: string]: string;
-};
-
-export interface Font {
-  family: string;
-  weight: string | number;
-  style: string;
-  size?: number;
-}
-
-export interface CanvasConfig {
-  width: number;
-  height: number;
-  dpi: number;
-  background?: string;
-}
-
-export interface QrConfig {
-  payload: string;
-  x: number;
-  y: number;
-  size: number;
-  frame: 'none' | 'square' | 'rounded';
-}
-
-export interface Asset {
-  source: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  fit: 'contain' | 'cover';
-  opacity?: number;
-}
-
-export interface TextBlock {
-  type: 'text';
+export interface State {
   id: string;
-  text: string;
-  x: number;
-  y: number;
-  font: Font;
-  align: CanvasTextAlign;
-  maxWidth?: number;
+  name: string;          // "Tocantins"
+  uf: string;            // "TO"
+  ccbStateCode: string;  // "28" (usado em códigos BR-28-XXXX)
 }
 
-export interface RuleBlock {
-  type: 'rule';
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  style: 'solid' | 'dashed';
-  dash?: number[];
+// Bancos permanecem para as regras de máscara
+export interface Bank {
+  id: string;            // "001", "341"
+  code: string;          // "001", "341"
+  name: string;          // "Banco do Brasil", "Itaú"
+  agencyMask: string;    // "0000-0"
+  accountMask: string;   // "00000-0"
+  agencyPattern?: string;
+  accountPattern?: string;
 }
 
-export interface BoxBlock {
-  type: 'box';
+// REGIONAL (Nova entidade central para Dados Financeiros)
+export interface Regional {
   id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  fill?: string;
-  stroke?: string;
-  strokeWidth?: number;
+  name: string;          // "Regional Porto Nacional"
+  stateId: string;       // referencia State.id
+  code?: string;         // opcional, ex: "RN-PN"
+  // Dados de CNPJ/Banco (Antigo PixKey)
+  cnpj: string;          // Somente dígitos
+  ownerName: string;     // Nome do titular
+  bankId: string;        // referencia Bank.id
+  bankAgency: string;    // Somente dígitos
+  bankAccount: string;   // Somente dígitos
+  regionalCityName: string; // "Porto Nacional" (Nome da cidade para o payload)
+  active: boolean;
 }
 
-export interface KVBlock {
-  type: 'kv';
+// Cidades (Permanecem, mas serão usadas para filtrar igrejas)
+export interface City {
   id: string;
-  x: number;
-  y: number;
-  rows: string[][];
-  labelFont: Font;
-  valueFont: Font;
-  gapY: number;
+  name: string;          // "Porto Nacional" ou "Luzimangues"
+  regionalId: string;    // referencia Regional.id
 }
 
-export type Block = TextBlock | RuleBlock | BoxBlock | KVBlock;
-
-export interface FormSchemaField {
-    id: keyof PixData;
-    label: string;
-    type: 'text' | 'textarea' | 'currency' | 'mask';
-    required?: boolean;
-    maxLength?: number;
-    placeholder?: string;
-    pattern?: string;
-    mask?: string;
-    normalize?: 'upperNoAccent';
-    description?: string;
-}
-
-export interface Template {
+// CONGREGATION (Nova entidade central para Identificação da Transação)
+export interface Congregation {
   id: string;
-  name: string;
-  version: number;
-  canvas: CanvasConfig;
-  fonts: Font[];
-  assets: { [key: string]: Asset };
-  qr: QrConfig;
-  blocks: Block[];
-  formSchema: FormSchemaField[];
-  bindings: {
-    payload: { [key: string]: string };
-    display?: { [key: string]: string };
-  };
-  print?: {
-    bleed?: number;
-    margins?: number;
-  };
+  name: string;              // "Jardim Brasília"
+  cityId: string;            // referencia City.id
+  regionalId: string;        // Vínculo à Regional (para achar o CNPJ)
+  ccbOfficialCode: string;   // "BR-28-0059"
+  ccbSuffix: string;         // "0059" (parte final do código)
+  shortPrefix: string;       // "JB" (para gerar o identificador JB0059)
+  txidBase: string;          // Ex: "BR280059" (Antigo campo do PixIdentifier)
+  extraCents: number | null; // opcional, 0–99. Sufixo CCB (ex: 02 para R$ ***,02)
+  isCentral: boolean;        
+  active: boolean;
 }
 
-export interface TemplateWarning {
-  type: 'placeholder';
-  key: string;
-}
-
-export interface Preset {
+export interface PixPurpose {
   id: string;
-  label: string;
-  formValues: PixData;
-  updatedAt: string;
+  name: string;             // "Coleta geral"
+  displayLabel: string;     // Como aparece no cartão/mensagem
+  messageTemplate: string;  // Texto que vai para o campo mensagem/finalidade do PIX
+  txidSuffix: string;       // ex: "G01", "F01"
+  active: boolean;
+}
+
+export interface ResolvedPixProfile {
+  state: State;
+  regional: Regional;
+  city: City;
+  congregation: Congregation;
+  bank: Bank;
+  pixPurpose: PixPurpose;
+  
+  // Computed fields
+  txid: string;          
+  message: string;       
 }
