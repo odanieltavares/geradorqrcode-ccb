@@ -1,0 +1,5 @@
+{
+  "name": "PIX QR Generator",
+  "description": "A responsive system to generate PIX EMV QR codes and printable cards from a template. It supports individual and batch generation via CSV.",
+  "requestFramePermissions": []
+}
