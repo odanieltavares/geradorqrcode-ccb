@@ -233,7 +233,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo }) => {
                     <div key={row.id} className="text-xs p-2 border rounded-md flex justify-between items-center">
                     <span className="font-mono truncate">Item {row.id + 1}: {row.data.amount} {row.data.name !== baseData.name ? `(${row.data.name})` : ''}</span>
                     {row.status === 'success' && <Check className="w-4 h-4 text-green-500" />}
-                    {row.status === 'error' && <X className="w-4 h-4 text-destructive" title={row.error} />}
+                    {row.status === 'error' && <span title={row.error}><X className="w-4 h-4 text-destructive" /></span>}
                     </div>
                 ))}
                 </div>

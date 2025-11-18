@@ -89,7 +89,7 @@ export const ccbClassicTemplate: Template = {
   bindings: {
     payload: {
       name: '{{name}}',
-      key: '{{key}}',
+      key: '{{payloadKey}}', // USES RAW KEY FOR EMV
       city: '{{city}}',
       txid: '{{txid}}',
       amount: '{{amount}}',
@@ -123,7 +123,13 @@ export const minimalTemplate: Template = {
         { id: 'displayValue', label: 'Valor (display no cartão)', type: 'text', placeholder: 'R$ 0,00' },
     ],
     bindings: {
-        payload: { name: '{{name}}', key: '{{key}}', city: '{{city}}', txid: '{{txid}}', amount: '{{amount}}' },
+        payload: { 
+            name: '{{name}}', 
+            key: '{{payloadKey}}', // USES RAW KEY FOR EMV
+            city: '{{city}}', 
+            txid: '{{txid}}', 
+            amount: '{{amount}}' 
+        },
     },
 };
 

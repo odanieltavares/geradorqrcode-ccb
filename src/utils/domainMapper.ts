@@ -18,7 +18,8 @@ export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string
   return {
     // Campos padrões do Payload PIX
     name: receiverName,
-    key: formatCnpj(pixKey.cnpj), // Exibe CNPJ formatado no input, mas lib/pix.ts deve sanitizar se necessário
+    key: formatCnpj(pixKey.cnpj), // CNPJ formatado para exibição (Card)
+    payloadKey: pixKey.cnpj,      // CNPJ puro (apenas números) para o Payload QR Code
     city: city.name, // Cidade oficial da transação
     txid: profile.txid,
     amount: amount || '',
