@@ -17,8 +17,8 @@ interface IndividualTabProps {
   template: Template;
   logo: string | null;
   warnings: TemplateWarning[];
-  presets: any[]; // Compatibilidade
-  onApplyPreset: (id: string) => void;
+  // Nova prop para notificar o App sobre a atualização da PixData, corrigindo o bug de preview.
+  onPreviewData: (data: PixData | null, template: Template) => void; 
 }
 
 const IndividualTab: React.FC<IndividualTabProps> = ({
@@ -29,37 +29,55 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
   template,
   logo,
   warnings,
+  onPreviewData,
 }) => {
   const [resolvedProfile, setResolvedProfile] = useState<ResolvedPixProfile | null>(null);
   const [amount, setAmount] = useState('');
 
   const handleProfileResolved = (profile: ResolvedPixProfile | null) => {
     setResolvedProfile(profile);
+    
     if (profile) {
       const newData = mapProfileToPixData(profile, amount);
       setFormData(newData);
+      // BUG FIX: Notifica o App para que o Card/QR Preview seja gerado com os novos dados
+      onPreviewData(newData, template);
+    } else {
+      setFormData({} as PixData);
+      onPreviewData(null, template);
     }
   };
 
   const handleAmountChange = (val: string) => {
     setAmount(val);
+    
+    const fieldSchema = template?.formSchema?.find(f => f.id === 'amount');
+    const normalized = normalizeValue(val, fieldSchema);
+
     if (resolvedProfile) {
-      // Se temos um perfil ativo, regeneramos os dados para garantir consistência
-      const newData = mapProfileToPixData(resolvedProfile, val);
+      // Se há um perfil, regenera os dados para manter a consistência do domínio
+      const newData = mapProfileToPixData(resolvedProfile, normalized);
       setFormData(newData);
+      onPreviewData(newData, template); // Notifica o App
     } else {
-      // Fallback para edição manual
-      const fieldSchema = template?.formSchema?.find(f => f.id === 'amount');
-      const normalized = normalizeValue(val, fieldSchema);
+      // Fallback para edição manual do valor se não houver perfil selecionado
       setFormData(prev => ({ ...prev, amount: normalized }));
+      // O App já fará o re-render com o formData atualizado
     }
   };
+  
+  const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newMessage = e.target.value;
+    setFormData(prev => ({ ...prev, message: newMessage }));
+    // A alteração de message é simples e o App irá re-renderizar a partir do setFormData
+  };
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
         <h2 className="text-lg font-semibold mb-2">Gerar Cartão Individual</h2>
-        <p className="text-sm text-muted-foreground mb-6">Selecione a igreja e a finalidade para carregar os dados.</p>
+        <p className="text-sm text-muted-foreground mb-6">Selecione a hierarquia de dados (Regional, Igreja, Finalidade).</p>
         
         {/* Novo Seletor Hierárquico */}
         <HierarchySelector onProfileResolved={handleProfileResolved} />
@@ -73,12 +91,12 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
                         label="Valor (opcional)"
                         placeholder="0,00"
                         value={formatValue(amount, { id: 'amount', type: 'currency', label: '' })}
-                        onChange={e => handleAmountChange(e.target.value)}
+                        onChange={handleAmountChange}
                     />
                      <TextField
                         label="Mensagem (Opcional)"
                         value={formData.message || ''}
-                        onChange={e => setFormData(prev => ({ ...prev, message: e.target.value }))}
+                        onChange={handleMessageChange}
                         maxLength={72}
                     />
                 </div>
@@ -89,9 +107,11 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
                 <div className="grid grid-cols-1 gap-3">
                     <TextField label="Recebedor" value={formData.name || ''} disabled />
                     <TextField label="Chave PIX (CNPJ)" value={formData.key || ''} disabled />
-                    <TextField label="Cidade" value={formData.city || ''} disabled />
+                    <TextField label="Cidade (Payload)" value={formData.city || ''} disabled />
                     <TextField label="Identificador (TXID)" value={formData.txid || ''} disabled />
                     <TextField label="Dados Bancários" value={formData.bankDisplay || ''} disabled />
+                    <TextField label="Cód. Igreja" value={formData.congregationCode || ''} disabled />
+                    <TextField label="Finalidade" value={formData.purposeLabel || ''} disabled />
                 </div>
              </div>
           </div>
