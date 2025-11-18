@@ -1,7 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { 
-  State, Regional, City, Congregation, Bank, PixKey, PixIdentifier, PixPurpose 
+  State, Regional, City, Congregation, Bank, PixPurpose 
 } from '../domain/types';
 import * as seeds from '../domain/mockData';
 
@@ -11,8 +11,7 @@ interface DomainContextType {
   cities: City[]; setCities: (v: City[]) => void;
   congregations: Congregation[]; setCongregations: (v: Congregation[]) => void;
   banks: Bank[]; setBanks: (v: Bank[]) => void;
-  pixKeys: PixKey[]; setPixKeys: (v: PixKey[]) => void;
-  identifiers: PixIdentifier[]; setIdentifiers: (v: PixIdentifier[]) => void;
+  // Removido: pixKeys, identifiers, purposes
   purposes: PixPurpose[]; setPurposes: (v: PixPurpose[]) => void;
 }
 
@@ -25,8 +24,6 @@ export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [cities, setCities] = useLocalStorage<City[]>('dom_cities', seeds.initialCities);
   const [congregations, setCongregations] = useLocalStorage<Congregation[]>('dom_congregations', seeds.initialCongregations);
   const [banks, setBanks] = useLocalStorage<Bank[]>('dom_banks', seeds.initialBanks);
-  const [pixKeys, setPixKeys] = useLocalStorage<PixKey[]>('dom_pixKeys', seeds.initialPixKeys);
-  const [identifiers, setIdentifiers] = useLocalStorage<PixIdentifier[]>('dom_identifiers', seeds.initialIdentifiers);
   const [purposes, setPurposes] = useLocalStorage<PixPurpose[]>('dom_purposes', seeds.initialPurposes);
 
   return (
@@ -36,8 +33,6 @@ export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cities, setCities,
       congregations, setCongregations,
       banks, setBanks,
-      pixKeys, setPixKeys,
-      identifiers, setIdentifiers,
       purposes, setPurposes,
     }}>
       {children}

@@ -22,8 +22,9 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
   useEffect(() => { setCongregationId(''); }, [cityId]);
   useEffect(() => { setPurposeId(''); }, [congregationId]);
 
-  // Resolver perfil completo
+  // Effect to resolve profile when everything is selected
   useEffect(() => {
+    // Note: A Regional e a City são essenciais para achar a Congregação e o CNPJ
     if (stateId && regionalId && cityId && congregationId && purposeId) {
       const profile = resolveProfile(stateId, regionalId, cityId, congregationId, purposeId, domain);
       onProfileResolved(profile);
@@ -32,14 +33,14 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
     }
   }, [stateId, regionalId, cityId, congregationId, purposeId, domain, onProfileResolved]);
 
-  // Filtros
+  // Filtering options
   const filteredRegionals = domain.regionals.filter(r => r.stateId === stateId);
   const filteredCities = domain.cities.filter(c => c.regionalId === regionalId);
-  const filteredCongregations = domain.congregations.filter(c => c.cityId === cityId);
+  // As congregações são filtradas pela Cidade (que está na Regional)
+  const filteredCongregations = domain.congregations.filter(c => c.cityId === cityId && c.regionalId === regionalId);
   
-  // Filtragem complexa: Identificadores da congregação -> Finalidades desses identificadores
-  const availableIdentifiers = domain.identifiers.filter(i => i.congregationId === congregationId);
-  const availablePurposes = domain.purposes.filter(p => availableIdentifiers.some(i => i.id === p.pixIdentifierId));
+  // Finalidades são globais neste modelo simplificado, mas podem ser filtradas por Regional no futuro.
+  const availablePurposes = domain.purposes.filter(p => p.active);
 
   const selectClass = "w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:ring-2 focus:ring-ring";
 
@@ -54,7 +55,7 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1">2. Regional</label>
+        <label className="block text-xs font-medium mb-1">2. Regional (Sede Adm.)</label>
         <select value={regionalId} onChange={e => setRegionalId(e.target.value)} className={selectClass} disabled={!stateId}>
            <option value="">Selecione...</option>
            {filteredRegionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -62,7 +63,7 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1">3. Cidade</label>
+        <label className="block text-xs font-medium mb-1">3. Cidade (Local)</label>
         <select value={cityId} onChange={e => setCityId(e.target.value)} className={selectClass} disabled={!regionalId}>
            <option value="">Selecione...</option>
            {filteredCities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -73,6 +74,7 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
         <label className="block text-xs font-medium mb-1">4. Igreja (Comum)</label>
         <select value={congregationId} onChange={e => setCongregationId(e.target.value)} className={selectClass} disabled={!cityId}>
            <option value="">Selecione...</option>
+           {filteredCongregations.length === 0 && cityId && <option value="" disabled>Nenhuma igreja nesta cidade/regional</option>}
            {filteredCongregations.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
@@ -81,7 +83,6 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
         <label className="block text-xs font-medium mb-1">5. Finalidade (Tipo de Coleta)</label>
         <select value={purposeId} onChange={e => setPurposeId(e.target.value)} className={selectClass} disabled={!congregationId}>
            <option value="">Selecione...</option>
-           {availablePurposes.length === 0 && congregationId && <option value="" disabled>Nenhuma finalidade cadastrada para esta igreja</option>}
            {availablePurposes.map(p => <option key={p.id} value={p.id}>{p.displayLabel}</option>)}
         </select>
       </div>

@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { useDomain } from '../context/DomainContext';
-import { Regional, City, Congregation, PixPurpose, Bank } from '../domain/types';
-import { Plus, Trash2, Edit } from 'lucide-react';
+import { Regional, Congregation, PixPurpose } from '../domain/types';
+import { Plus, Trash2 } from 'lucide-react';
 import TextField from '../components/TextField';
 import { v4 as uuidv4 } from 'uuid';
 import { formatCnpj, unformatCnpj, applyMask, stripNonNumeric } from '../utils/masks';
-
-// ... (EntityList Componente Editável permanece o mesmo) ...
-const EntityList = // ... (Mantenha o EntityList do passo anterior para edição/adição)
 
 // --- Admin Tab Component ---
 const AdminTab: React.FC = () => {
@@ -29,13 +26,16 @@ const AdminTab: React.FC = () => {
   const renderRegionals = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Regionais (Centro Financeiro)</h3>
+        <h3 className="text-lg font-semibold">Regionais (Centro Financeiro e Chave PIX)</h3>
         <button onClick={() => {
-            const defaultBankId = domain.banks[0]?.id || '';
+            if(domain.states.length === 0 || domain.banks.length === 0) return alert('Cadastre Bancos e Estados primeiro.');
+            const defaultBankId = domain.banks[0].id;
+            const defaultStateId = domain.states[0].id;
+
             const newItem: Regional = {
-                id: uuidv4(), name: 'Nova Regional', stateId: domain.states[0]?.id || '', active: true,
+                id: uuidv4(), name: 'Nova Regional', stateId: defaultStateId, active: true,
                 cnpj: '00000000000100', ownerName: 'Novo Titular CCB', bankId: defaultBankId,
-                bankAgency: '', bankAccount: '', regionalCityName: 'CIDADE'
+                bankAgency: '0000', bankAccount: '00000', regionalCityName: 'CIDADE'
             };
             domain.setRegionals([...domain.regionals, newItem]);
         }} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2">
@@ -47,9 +47,6 @@ const AdminTab: React.FC = () => {
         const bank = domain.banks.find(b => b.id === regional.bankId);
         const state = domain.states.find(s => s.id === regional.stateId);
         
-        // Simulação do botão "Cidade" dentro da regional (para simplificação do cadastro)
-        const isCityRegional = domain.cities.some(c => c.name === regional.regionalCityName && c.regionalId === regional.id);
-
         return (
           <div key={regional.id} className="border rounded p-4 space-y-3 bg-card">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -95,7 +92,7 @@ const AdminTab: React.FC = () => {
   const renderCongregations = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Igrejas / Congregações</h3>
+        <h3 className="text-lg font-semibold">Igrejas / Congregações (Identificador da Transação)</h3>
          <button onClick={() => {
             if(domain.regionals.length === 0 || domain.cities.length === 0) return alert('Cadastre Regional e Cidade primeiro.');
             const defaultRegionalId = domain.regionals[0].id;
@@ -129,7 +126,7 @@ const AdminTab: React.FC = () => {
                 <div>
                     <label className="block text-sm font-medium mb-1">Regional (Doador do CNPJ)</label>
                     <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={congregation.regionalId} onChange={e => { updateCongregation(congregation.id, 'regionalId', e.target.value); updateCongregation(congregation.id, 'cityId', citiesFilteredByRegional[0]?.id || ''); }}>
-                       {domain.regionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                       {domain.regionals.map(r => <option key={r.id} value={r.id}>{r.name} ({r.regionalCityName})</option>)}
                     </select>
                 </div>
                 <div>
@@ -172,7 +169,7 @@ const AdminTab: React.FC = () => {
             value={purpose.displayLabel} 
             onChange={e => {
                 updatePurpose(purpose.id, 'displayLabel', e.target.value);
-                updatePurpose(purpose.id, 'messageTemplate', e.target.value); // Unificando as duas
+                updatePurpose(purpose.id, 'messageTemplate', e.target.value); // UNIFICADO
             }} 
             placeholder="COLETA GERAL"
           />

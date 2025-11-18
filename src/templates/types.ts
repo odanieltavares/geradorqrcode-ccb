@@ -5,7 +5,6 @@ export interface State {
   ccbStateCode: string;  // "28" (usado em códigos BR-28-XXXX)
 }
 
-// Bancos permanecem para as regras de máscara
 export interface Bank {
   id: string;            // "001", "341"
   code: string;          // "001", "341"
@@ -16,7 +15,7 @@ export interface Bank {
   accountPattern?: string;
 }
 
-// REGIONAL (Nova entidade central para Dados Financeiros)
+// REGIONAL (Nova entidade central para Dados Financeiros e Sede Administrativa)
 export interface Regional {
   id: string;
   name: string;          // "Regional Porto Nacional"
@@ -32,14 +31,14 @@ export interface Regional {
   active: boolean;
 }
 
-// Cidades (Permanecem, mas serão usadas para filtrar igrejas)
+// Cidades (Usadas para organizar e filtrar Congregações, ligadas à Regional)
 export interface City {
   id: string;
   name: string;          // "Porto Nacional" ou "Luzimangues"
   regionalId: string;    // referencia Regional.id
 }
 
-// CONGREGATION (Nova entidade central para Identificação da Transação)
+// CONGREGATION (Nova entidade central para Identificação da Transação - Antigo PixIdentifier)
 export interface Congregation {
   id: string;
   name: string;              // "Jardim Brasília"
@@ -48,8 +47,8 @@ export interface Congregation {
   ccbOfficialCode: string;   // "BR-28-0059"
   ccbSuffix: string;         // "0059" (parte final do código)
   shortPrefix: string;       // "JB" (para gerar o identificador JB0059)
-  txidBase: string;          // Ex: "BR280059" (Antigo campo do PixIdentifier)
-  extraCents: number | null; // opcional, 0–99. Sufixo CCB (ex: 02 para R$ ***,02)
+  txidBase: string;          // Ex: "BR280059"
+  extraCents: number | null; // Sufixo CCB (ex: 2 para R$ ***,02)
   isCentral: boolean;        
   active: boolean;
 }
@@ -57,8 +56,8 @@ export interface Congregation {
 export interface PixPurpose {
   id: string;
   name: string;             // "Coleta geral"
-  displayLabel: string;     // Como aparece no cartão/mensagem
-  messageTemplate: string;  // Texto que vai para o campo mensagem/finalidade do PIX
+  displayLabel: string;     // Label no Cartão e Mensagem no Payload (UNIFICADO)
+  messageTemplate: string;  // Texto que vai para o campo mensagem/finalidade do PIX (Igual a displayLabel)
   txidSuffix: string;       // ex: "G01", "F01"
   active: boolean;
 }
