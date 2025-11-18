@@ -1,4 +1,3 @@
-
 export interface State {
   id: string;
   name: string;          // "Tocantins"
@@ -11,7 +10,6 @@ export interface Regional {
   name: string;          // "Regional Porto Nacional"
   stateId: string;       // referencia State.id
   code?: string;         // opcional, ex: "RN-PN"
-  defaultPixKeyId?: string; // opcional, referencia PixKey.id
 }
 
 export interface City {
@@ -36,8 +34,8 @@ export interface Bank {
   name: string;          // "Banco do Brasil", "Itaú", etc.
   agencyMask: string;    // "0000-0"
   accountMask: string;   // "00000-0"
-  agencyPattern?: string;
-  accountPattern?: string;
+  agencyPattern?: string; // Regex string opcional
+  accountPattern?: string; // Regex string opcional
 }
 
 export type PixKeyType = 'CNPJ';
@@ -50,9 +48,7 @@ export interface PixKey {
   bankId: string;        // referencia Bank.id
   bankAgency: string;    // somente dígitos, sem máscara
   bankAccount: string;   // somente dígitos, sem máscara
-  regionalId?: string;   // geralmente ligada à Regional
-  cityId?: string;       // opcional, casos específicos
-  congregationId?: string; // opcional, chave própria de uma igreja
+  regionalId?: string;   // Vínculo principal: Chave pertence a uma Regional
   active: boolean;
 }
 
@@ -62,26 +58,24 @@ export interface PixIdentifier {
   id: string;
   code: string;          // "JB0059" (identificador humano da igreja)
   congregationId: string;
-  pixKeyId: string;      // qual chave PIX esse identificador usa
+  pixKeyId: string;      // Qual chave PIX este identificador usa (herdada da regional ou específica)
   txidBase: string;      // ex: "BR280059"
   strategy: PixIdentifierStrategy;
-  description?: string;  // "Identificador principal da Comum Jardim Brasília"
+  description?: string;  
   active: boolean;
 }
 
 export interface PixPurpose {
   id: string;
   pixIdentifierId: string;  // referencia PixIdentifier.id
-  name: string;             // "Coleta geral", "Fundo bíblico", etc.
-  shortCode: string;        // "G", "F", "E"...
+  name: string;             // "Coleta geral", "Fundo bíblico"
   displayLabel: string;     // como aparece no cartão: "COLETA GERAL JB0059"
-  messageTemplate: string;  // texto que vai para o campo mensagem/finalidade do PIX
+  messageTemplate: string;  // texto que vai para o campo mensagem do PIX
   txidSuffix: string;       // ex: "G01", "F01"
-  extraCents?: number | null; // opcional, 0–99
   active: boolean;
 }
 
-// The resolved object used to populate the form/template
+// Objeto resolvido pronto para preencher o template/gerador
 export interface ResolvedPixProfile {
   state: State;
   regional: Regional;
@@ -92,7 +86,7 @@ export interface ResolvedPixProfile {
   pixIdentifier: PixIdentifier;
   pixPurpose: PixPurpose;
   
-  // Computed fields
+  // Campos computados
   txid: string;          
   message: string;       
 }

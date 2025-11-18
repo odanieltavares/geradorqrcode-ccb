@@ -1,38 +1,38 @@
-
-import { ResolvedPixProfile, Bank } from '../domain/types';
+import { ResolvedPixProfile } from '../domain/types';
 import { PixData } from '../types';
 import { applyMask, formatCnpj } from './masks';
 
 export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string): PixData => {
   const { bank, pixKey, regional, congregation, pixPurpose, city } = profile;
 
-  // Format bank fields for display
+  // Formata campos bancários para EXIBIÇÃO NO CARTÃO usando as máscaras do Banco
   const agencyDisplay = applyMask(pixKey.bankAgency, bank.agencyMask);
   const accountDisplay = applyMask(pixKey.bankAccount, bank.accountMask);
   
-  // Build a display string for the bank info
+  // String completa de dados bancários
   const bankDisplay = `${bank.name} - Ag: ${agencyDisplay} - CC: ${accountDisplay}`;
 
-  // Use owner name from key, or regional name as fallback
+  // Nome do recebedor (prioridade: Nome na chave -> Nome da Regional)
   const receiverName = pixKey.ownerName || regional.name;
 
   return {
+    // Campos padrões do Payload PIX
     name: receiverName,
-    key: formatCnpj(pixKey.cnpj), // Display masked CNPJ
-    city: city.name, // Payload city (usually no accents, but handled by lib/pix)
+    key: formatCnpj(pixKey.cnpj), // Exibe CNPJ formatado no input, mas lib/pix.ts deve sanitizar se necessário
+    city: city.name, // Cidade oficial da transação
     txid: profile.txid,
     amount: amount || '',
-    displayValue: amount ? `R$ ${amount}` : 'R$ ***,00',
+    message: profile.message,
     
-    // Fields specific to CCB Templates
+    // Campos de Display (Cartão)
+    displayValue: amount ? `R$ ${amount}` : 'R$ ***,00',
     location: city.name.toUpperCase(),
     neighborhood: congregation.name.toUpperCase(),
     bank: `${bank.name} - ${bank.code}`,
     agency: agencyDisplay,
     account: accountDisplay,
-    message: profile.message,
-
-    // Extra context fields that might be used in newer templates
+    
+    // Campos extras para novos templates
     regionalName: regional.name.toUpperCase(),
     congregationCode: profile.pixIdentifier.code,
     purposeLabel: pixPurpose.displayLabel,
@@ -42,7 +42,7 @@ export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string
 
 export const resolveProfile = (
   stateId: string, regionalId: string, cityId: string, congregationId: string, purposeId: string,
-  domain: any // passing the whole domain store for resolution
+  domain: any
 ): ResolvedPixProfile | null => {
   const state = domain.states.find((s: any) => s.id === stateId);
   const regional = domain.regionals.find((r: any) => r.id === regionalId);
@@ -61,25 +61,14 @@ export const resolveProfile = (
   const bank = domain.banks.find((b: any) => b.id === key.bankId);
   if (!bank) return null;
 
-  // Construct TXID and Message
-  // Sanitize TXID base + suffix (remove spaces/special chars, max 25)
+  // Construção do TXID (Base + Sufixo) e Sanitização (A-Z, 0-9, max 25)
   const rawTxid = (identifier.txidBase + purpose.txidSuffix).toUpperCase().replace(/[^A-Z0-9]/g, '');
   const txid = rawTxid.slice(0, 25);
 
-  // Interpolate message
-  // This is a simple implementation. Could be expanded with a proper template engine.
   const message = purpose.messageTemplate;
 
   return {
-    state,
-    regional,
-    city,
-    congregation,
-    bank,
-    pixKey: key,
-    pixIdentifier: identifier,
-    pixPurpose: purpose,
-    txid,
-    message
+    state, regional, city, congregation, bank, pixKey: key, pixIdentifier: identifier, pixPurpose: purpose,
+    txid, message
   };
 };

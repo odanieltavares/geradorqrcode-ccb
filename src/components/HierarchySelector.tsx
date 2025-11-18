@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useDomain } from '../context/DomainContext';
 import { ResolvedPixProfile } from '../domain/types';
@@ -23,7 +22,7 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
   useEffect(() => { setCongregationId(''); }, [cityId]);
   useEffect(() => { setPurposeId(''); }, [congregationId]);
 
-  // Effect to resolve profile when everything is selected
+  // Resolver perfil completo
   useEffect(() => {
     if (stateId && regionalId && cityId && congregationId && purposeId) {
       const profile = resolveProfile(stateId, regionalId, cityId, congregationId, purposeId, domain);
@@ -33,12 +32,12 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
     }
   }, [stateId, regionalId, cityId, congregationId, purposeId, domain, onProfileResolved]);
 
-  // Filtering options
+  // Filtros
   const filteredRegionals = domain.regionals.filter(r => r.stateId === stateId);
   const filteredCities = domain.cities.filter(c => c.regionalId === regionalId);
   const filteredCongregations = domain.congregations.filter(c => c.cityId === cityId);
   
-  // Complex filtering: Purposes depend on Identifier -> Congregation
+  // Filtragem complexa: Identificadores da congregação -> Finalidades desses identificadores
   const availableIdentifiers = domain.identifiers.filter(i => i.congregationId === congregationId);
   const availablePurposes = domain.purposes.filter(p => availableIdentifiers.some(i => i.id === p.pixIdentifierId));
 

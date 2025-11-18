@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import CardPreview from '../components/CardPreview';
 import QrPreview from '../components/QrPreview';
@@ -18,7 +17,7 @@ interface IndividualTabProps {
   template: Template;
   logo: string | null;
   warnings: TemplateWarning[];
-  presets: any[]; 
+  presets: any[]; // Compatibilidade
   onApplyPreset: (id: string) => void;
 }
 
@@ -44,13 +43,12 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
 
   const handleAmountChange = (val: string) => {
     setAmount(val);
-    // Update form data if we have a profile, otherwise just update amount
-    // We need to re-map because `mapProfileToPixData` handles displayValue logic
     if (resolvedProfile) {
+      // Se temos um perfil ativo, regeneramos os dados para garantir consistência
       const newData = mapProfileToPixData(resolvedProfile, val);
       setFormData(newData);
     } else {
-      // Fallback for manual editing if profile is broken (shouldn't happen in this flow)
+      // Fallback para edição manual
       const fieldSchema = template?.formSchema?.find(f => f.id === 'amount');
       const normalized = normalizeValue(val, fieldSchema);
       setFormData(prev => ({ ...prev, amount: normalized }));
@@ -63,12 +61,12 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
         <h2 className="text-lg font-semibold mb-2">Gerar Cartão Individual</h2>
         <p className="text-sm text-muted-foreground mb-6">Selecione a igreja e a finalidade para carregar os dados.</p>
         
+        {/* Novo Seletor Hierárquico */}
         <HierarchySelector onProfileResolved={handleProfileResolved} />
         
         {resolvedProfile ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-             {/* Editable Fields */}
-            <div className="md:col-span-2 border-b pb-4 mb-4">
+             <div className="md:col-span-2 border-b pb-4 mb-4">
                 <h4 className="text-sm font-semibold text-primary mb-3">Campos Editáveis</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <TextField
@@ -86,16 +84,14 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
                 </div>
             </div>
 
-             {/* Read Only Fields Visualization */}
              <div className="md:col-span-2 space-y-3 opacity-80">
-                <h4 className="text-xs font-bold uppercase text-muted-foreground">Dados Carregados (Somente Leitura)</h4>
-                
+                <h4 className="text-xs font-bold uppercase text-muted-foreground">Dados Carregados (Leitura)</h4>
                 <div className="grid grid-cols-1 gap-3">
                     <TextField label="Recebedor" value={formData.name || ''} disabled />
                     <TextField label="Chave PIX (CNPJ)" value={formData.key || ''} disabled />
                     <TextField label="Cidade" value={formData.city || ''} disabled />
                     <TextField label="Identificador (TXID)" value={formData.txid || ''} disabled />
-                    <TextField label="Dados Bancários" value={formData.bankDisplay || `${formData.bank} / ${formData.agency} / ${formData.account}`} disabled />
+                    <TextField label="Dados Bancários" value={formData.bankDisplay || ''} disabled />
                 </div>
              </div>
           </div>

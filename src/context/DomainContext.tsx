@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { 
@@ -20,6 +19,7 @@ interface DomainContextType {
 const DomainContext = createContext<DomainContextType | undefined>(undefined);
 
 export const DomainProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Inicializa com seed data se localStorage estiver vazio
   const [states, setStates] = useLocalStorage<State[]>('dom_states', seeds.initialStates);
   const [regionals, setRegionals] = useLocalStorage<Regional[]>('dom_regionals', seeds.initialRegionals);
   const [cities, setCities] = useLocalStorage<City[]>('dom_cities', seeds.initialCities);

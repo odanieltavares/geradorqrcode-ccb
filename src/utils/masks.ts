@@ -1,10 +1,9 @@
-
-// Remove non-numeric characters
+// Remove caracteres não numéricos
 export const stripNonNumeric = (value: string): string => {
   return value.replace(/\D/g, '');
 };
 
-// Format: 00.000.000/0001-00
+// Formata CNPJ: 00.000.000/0001-00
 export const formatCnpj = (value: string): string => {
   const digits = stripNonNumeric(value).slice(0, 14);
   return digits
@@ -18,8 +17,8 @@ export const unformatCnpj = (value: string): string => {
   return stripNonNumeric(value);
 };
 
-// Apply a generic mask like "0000-0" or "000.000-0"
-// '#' or '0' in the mask represents a digit slot.
+// Aplica uma máscara genérica onde '0' ou '#' são placeholders de dígitos
+// Ex: mask "0000-0", value "12345" -> "1234-5"
 export const applyMask = (value: string, mask: string): string => {
   const digits = stripNonNumeric(value);
   let result = '';
@@ -37,8 +36,13 @@ export const applyMask = (value: string, mask: string): string => {
   return result;
 };
 
-// Simple validation based on length for MVP
+export const stripMask = (value: string): string => {
+  return stripNonNumeric(value);
+};
+
 export const isValidCnpj = (cnpj: string): boolean => {
   const digits = stripNonNumeric(cnpj);
+  // Validação simples de comprimento para MVP. 
+  // Em produção, adicionar algoritmo de dígitos verificadores.
   return digits.length === 14;
 };
