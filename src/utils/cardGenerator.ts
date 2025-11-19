@@ -9,13 +9,17 @@ const loadFont = async (font: Font) => {
     return;
   }
   
-  // The font-style string for the API: "italic 700 16px Inter"
   const fontString = `${font.style} ${font.weight} 16px ${font.family}`;
   try {
-    await document.fonts.load(fontString);
+    // Timeout race to prevent eternal hanging
+    await Promise.race([
+        document.fonts.load(fontString),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Font load timeout')), 2000))
+    ]);
     loadedFonts.add(fontIdentifier);
   } catch (e) {
-    console.error(`Could not ensure font is loaded: ${font.family} ${font.weight}`, e);
+    console.warn(`Could not ensure font is loaded (or timed out): ${font.family} ${font.weight}`, e);
+    // We don't throw here, so rendering can continue with fallback fonts
   }
 };
 
@@ -78,7 +82,6 @@ const drawAsset = async (ctx: CanvasRenderingContext2D, asset: Asset, data: PixD
              const { x, y, width, height } = getObjectFitSize(true, asset.w, asset.h, img.width, img.height);
              ctx.drawImage(img, asset.x + x, asset.y + y, width, height);
         } else {
-             // Default or 'cover' (can be expanded)
             ctx.drawImage(img, asset.x, asset.y, asset.w, asset.h);
         }
         
@@ -100,11 +103,9 @@ const drawMixedWeightText = (ctx: CanvasRenderingContext2D, block: TextBlock, te
         const label = `${parts[0]}${separator} `;
         const value = parts.slice(1).join(separator).trim();
         
-        // Draw label in bold
         ctx.font = `${block.font.style} 700 ${block.font.size}px ${block.font.family}`;
         ctx.fillText(label, block.x, block.y);
 
-        // Measure label and draw value in regular
         const labelWidth = ctx.measureText(label).width;
         ctx.font = `${block.font.style} 400 ${block.font.size}px ${block.font.family}`;
         ctx.fillText(value, block.x + labelWidth, block.y);
@@ -118,7 +119,7 @@ const drawBlock = (ctx: CanvasRenderingContext2D, block: Block, data: PixData) =
     case 'text':
       ctx.font = `${block.font.style} ${block.font.weight} ${block.font.size}px ${block.font.family}`;
       ctx.textAlign = block.align;
-      ctx.fillStyle = '#000000'; // Assuming black text for now
+      ctx.fillStyle = '#000000'; 
       const text = replacePlaceholders(block.text, data);
 
       if (['detail-agency', 'detail-account', 'details-txid'].includes(block.id)) {
@@ -128,8 +129,8 @@ const drawBlock = (ctx: CanvasRenderingContext2D, block: Block, data: PixData) =
       
       const lines = text.split('\n');
       if (lines.length > 1) {
-          const lineHeight = (block.font.size ?? 16) * 1.2; // 1.2 line spacing
-          const startY = block.y - ((lines.length -1) * lineHeight / 2); // Center multiline text vertically
+          const lineHeight = (block.font.size ?? 16) * 1.2; 
+          const startY = block.y - ((lines.length -1) * lineHeight / 2); 
           lines.forEach((line, index) => {
               ctx.fillText(line, block.x, startY + (index * lineHeight), block.maxWidth);
           });
@@ -139,21 +140,19 @@ const drawBlock = (ctx: CanvasRenderingContext2D, block: Block, data: PixData) =
       break;
     case 'rule':
       if (block.style === 'solid') {
-        ctx.fillStyle = '#000000'; // Assuming black
-        // A solid rule is a filled rectangle, works for horizontal and vertical.
+        ctx.fillStyle = '#000000'; 
         ctx.fillRect(block.x, block.y, block.w, block.h);
       } else if (block.style === 'dashed') {
         ctx.beginPath();
-        ctx.strokeStyle = '#000000'; // Assuming black
-        ctx.lineWidth = block.h > 0 ? block.h : 2; // Dashed lines use h as thickness
+        ctx.strokeStyle = '#000000'; 
+        ctx.lineWidth = block.h > 0 ? block.h : 2; 
         if (block.dash) {
           ctx.setLineDash(block.dash);
         }
-        // Dashed rules are assumed to be horizontal lines.
         ctx.moveTo(block.x, block.y);
         ctx.lineTo(block.x + block.w, block.y);
         ctx.stroke();
-        ctx.setLineDash([]); // Reset dash
+        ctx.setLineDash([]); 
       }
       break;
     case 'kv':
@@ -172,8 +171,7 @@ const drawBlock = (ctx: CanvasRenderingContext2D, block: Block, data: PixData) =
 
           if (value) {
             ctx.font = `${block.valueFont.style} ${block.valueFont.weight} ${block.valueFont.size}px ${block.valueFont.family}`;
-            // Assuming value is right-aligned or positioned differently - for now, just append
-            ctx.fillText(value, block.x + 200, yPos); // A better way would be to have separate x positions
+            ctx.fillText(value, block.x + 200, yPos); 
           }
       });
       break;
@@ -200,18 +198,18 @@ export const drawCardOnCanvas = async (
   logo: string | null,
   qrCodeDataUrl: string,
 ) => {
-  // 1. Clear and set background
+  // 1. Clear
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = template?.canvas?.background || '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // 2. Create an enhanced data object for dynamic placeholders
+  // 2. Enhance Data
   const finalityOrTxid = formData.message 
     ? `FINALIDADE: ${formData.message}`
     : `IDENTIFICADOR: ${formData.txid}`;
   const enhancedData = { ...formData, finalityOrTxid };
 
-  // 3. Ensure all fonts are available to the context
+  // 3. Load Fonts (Safe Mode)
   await Promise.all((template?.fonts || []).map(loadFont));
   
   // 4. Draw assets
