@@ -7,44 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { formatCnpj, unformatCnpj, applyMask, stripNonNumeric } from '../utils/masks';
 import AccordionItem from '../components/AccordionItem';
 
-// Helper para exportar dados
-const handleExportDomain = (domain: any) => {
-    const fullData = {
-        states: domain.states, regionals: domain.regionals, cities: domain.cities,
-        congregations: domain.congregations, banks: domain.banks, purposes: domain.purposes
-    };
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(fullData, null, 2))}`;
-    const link = document.createElement("a");
-    link.href = jsonString;
-    link.download = `backup_sistema_pix_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    alert('Backup exportado com sucesso!');
-};
-
-// Helper para importar dados
-const handleImportDomain = (event: React.ChangeEvent<HTMLInputElement>, domain: any) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = JSON.parse(e.target?.result as string);
-            if (data.states) domain.setStates(data.states);
-            if (data.regionals) domain.setRegionals(data.regionals);
-            if (data.cities) domain.setCities(data.cities);
-            if (data.congregations) domain.setCongregations(data.congregations);
-            if (data.banks) domain.setBanks(data.banks);
-            if (data.purposes) domain.setPurposes(data.purposes);
-            alert('Backup restaurado com sucesso! (Pode ser necessário recarregar a página)');
-        } catch (err) {
-            alert('Erro ao processar arquivo de backup. Verifique o formato JSON.');
-        }
-    };
-    reader.readAsText(file);
-};
-
-
-// --- Admin Tab Component ---
 const AdminTab: React.FC = () => {
   const domain = useDomain();
   const [activeSection, setActiveSection] = useState<string>('regionals'); 
@@ -52,7 +14,7 @@ const AdminTab: React.FC = () => {
   const [searchCityId, setSearchCityId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // --- Funções de Update Genéricas ---
+  // Helper para atualizar itens
   const createUpdater = <T extends { id: string }>(setter: (v: T[]) => void, items: T[]) => 
     (id: string, field: keyof T, value: any) => {
         setter(items.map(i => i.id === id ? { ...i, [field]: value } : i));
@@ -62,273 +24,215 @@ const AdminTab: React.FC = () => {
   const updateCongregation = createUpdater<Congregation>(domain.setCongregations, domain.congregations);
   const updatePurpose = createUpdater<PixPurpose>(domain.setPurposes, domain.purposes);
 
-  // --- Funções de Adicionar Corrigidas (Garantindo dados mínimos) ---
+  // --- Funções de Adicionar (TOPO DA LISTA) ---
   const handleAddRegional = () => {
-      if(domain.states.length === 0 || domain.banks.length === 0) return alert('Cadastre Bancos e Estados primeiro (via mockData.ts ou no console).');
-      const defaultBankId = domain.banks[0].id;
-      const defaultStateId = domain.states[0].id;
-
+      if(domain.states.length === 0 || domain.banks.length === 0) return alert('Erro: Banco ou Estado não cadastrados no sistema base.');
+      
       const newItem: Regional = {
-          id: uuidv4(), name: 'Nova Regional', stateId: defaultStateId, active: true,
-          cnpj: '00000000000100', ownerName: 'Novo Titular CCB', bankId: defaultBankId,
-          bankAgency: '0000', bankAccount: '00000', regionalCityName: 'CIDADE'
+          id: uuidv4(), name: 'Nova Regional', stateId: domain.states[0].id, active: true,
+          cnpj: '', ownerName: 'CCB DO BRASIL', bankId: domain.banks[0].id,
+          bankAgency: '', bankAccount: '', regionalCityName: 'CIDADE'
       };
-      domain.setRegionals([...domain.regionals, newItem]);
+      domain.setRegionals([newItem, ...domain.regionals]); // Adiciona ao topo
   };
 
   const handleAddCongregation = () => {
       if(domain.regionals.length === 0 || domain.cities.length === 0) return alert('Cadastre Regional e Cidade primeiro.');
-      const defaultRegionalId = domain.regionals[0].id;
-      const defaultCityId = domain.cities.find(c => c.regionalId === defaultRegionalId)?.id || domain.cities[0].id;
-      domain.setCongregations([...domain.congregations, { 
-          id: uuidv4(), name: 'Nova Igreja', cityId: defaultCityId, regionalId: defaultRegionalId, 
-          ccbOfficialCode: 'BR-XX-XXXX', ccbSuffix: 'XXXX', shortPrefix: 'NVI', isCentral: false, 
-          txidBase: 'BRXXXXXX', extraCents: 0, active: true
-      }]); 
+      
+      const defaultRegional = domain.regionals[0];
+      const defaultCity = domain.cities.find(c => c.regionalId === defaultRegional.id) || domain.cities[0];
+      
+      const newItem: Congregation = { 
+          id: uuidv4(), name: 'Nova Igreja', cityId: defaultCity.id, regionalId: defaultRegional.id, 
+          ccbOfficialCode: '', ccbSuffix: '', shortPrefix: '', isCentral: false, 
+          txidBase: '', extraCents: 0, active: true
+      };
+      domain.setCongregations([newItem, ...domain.congregations]); // Adiciona ao topo
   };
   
   const handleAddPurpose = () => {
-    domain.setPurposes([...domain.purposes, { id: uuidv4(), name: 'Nova Coleta', displayLabel: 'NOVA COLETA', messageTemplate: 'NOVA COLETA', txidSuffix: 'N01', active: true }]);
+    const newItem: PixPurpose = { id: uuidv4(), name: 'Nova Coleta', displayLabel: 'NOVA COLETA', messageTemplate: 'NOVA COLETA', txidSuffix: '', active: true };
+    domain.setPurposes([newItem, ...domain.purposes]); // Adiciona ao topo
   };
 
+  // --- Renderizações ---
 
-  // --- Renderização de Regionais ---
   const renderRegionals = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Regionais (Centro Financeiro)</h3>
-        <button onClick={handleAddRegional} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2">
-          <Plus size={16}/> Nova Regional
-        </button>
+        <h3 className="text-lg font-semibold">Regionais</h3>
+        <button onClick={handleAddRegional} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2"><Plus size={16}/> Nova Regional</button>
       </div>
       
-      {domain.regionals.map(regional => {
-        const bank = domain.banks.find(b => b.id === regional.bankId);
-        const state = domain.states.find(s => s.id === regional.stateId);
-        
-        return (
+      {domain.regionals.map(regional => (
           <AccordionItem
             key={regional.id}
             id={regional.id}
             title={regional.name}
-            subtitle={`CNPJ: ${formatCnpj(regional.cnpj)} | Banco: ${bank?.code}`}
+            subtitle={regional.cnpj ? formatCnpj(regional.cnpj) : 'Sem CNPJ'}
             onDelete={(id) => domain.setRegionals(domain.regionals.filter(k => k.id !== id))}
+            defaultOpen={regional.name === 'Nova Regional'}
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-1">
               <TextField label="Nome da Regional" value={regional.name} onChange={e => updateRegional(regional.id, 'name', e.target.value)} />
               <div>
-                <label className="block text-sm font-medium mb-1">Estado</label>
-                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={regional.stateId} onChange={e => updateRegional(regional.id, 'stateId', e.target.value)}>
-                  {domain.states.map(s => <option key={s.id} value={s.id}>{s.name} ({s.uf})</option>)}
+                <label className="block text-xs font-medium mb-1">Estado</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={regional.stateId || ''} onChange={e => updateRegional(regional.id, 'stateId', e.target.value)}>
+                  {domain.states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-              <TextField label="Cidade da Sede (Payload)" value={regional.regionalCityName} onChange={e => updateRegional(regional.id, 'regionalCityName', e.target.value)} />
-              <TextField label="Cód. Opcional" value={regional.code || ''} onChange={e => updateRegional(regional.id, 'code', e.target.value)} />
-            </div>
-            
-            <div className="pt-4 border-t mt-4">
-                <h4 className="text-sm font-semibold mb-3 text-primary">Dados Financeiros (Chave PIX)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <TextField label="Nome do Titular" value={regional.ownerName} onChange={e => updateRegional(regional.id, 'ownerName', e.target.value)} />
-                    <TextField label="CNPJ" value={formatCnpj(regional.cnpj)} onChange={e => updateRegional(regional.id, 'cnpj', unformatCnpj(e.target.value))} placeholder="00.000.000/0000-00" />
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Banco</label>
-                        <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={regional.bankId} onChange={e => updateRegional(regional.id, 'bankId', e.target.value)}>
-                            {domain.banks.map(b => <option key={b.id} value={b.id}>{b.code} - {b.name}</option>)}
+              <TextField label="CNPJ" value={formatCnpj(regional.cnpj)} onChange={e => updateRegional(regional.id, 'cnpj', unformatCnpj(e.target.value))} />
+              <TextField label="Cidade Sede (PIX)" value={regional.regionalCityName} onChange={e => updateRegional(regional.id, 'regionalCityName', e.target.value)} />
+              
+              <div className="md:col-span-2 border-t pt-2 mt-2">
+                 <p className="text-xs font-bold mb-2 text-muted-foreground">Dados Bancários</p>
+                 <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-1">
+                         <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={regional.bankId || ''} onChange={e => updateRegional(regional.id, 'bankId', e.target.value)}>
+                            {domain.banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                     </div>
-                    <TextField label={`Agência (${bank?.agencyMask || ''})`} value={applyMask(regional.bankAgency, bank?.agencyMask || '')} onChange={e => updateRegional(regional.id, 'bankAgency', stripNonNumeric(e.target.value))} />
-                    <TextField label={`Conta (${bank?.accountMask || ''})`} value={applyMask(regional.bankAccount, bank?.accountMask || '')} onChange={e => updateRegional(regional.id, 'bankAccount', stripNonNumeric(e.target.value))} />
-                </div>
+                    <TextField label="Agência" value={regional.bankAgency} onChange={e => updateRegional(regional.id, 'bankAgency', stripNonNumeric(e.target.value))} />
+                    <TextField label="Conta" value={regional.bankAccount} onChange={e => updateRegional(regional.id, 'bankAccount', stripNonNumeric(e.target.value))} />
+                 </div>
+              </div>
             </div>
-          </AccordionItem>
-        );
-      })}
-    </div>
-  );
-
-  // --- Filtragem de Congregações ---
-  const filteredCongregations = useMemo(() => {
-    let list = domain.congregations;
-    
-    // 1. Filtrar por Estado (via Regional)
-    if (searchStateId) {
-      const regionalIdsInState = domain.regionals.filter(r => r.stateId === searchStateId).map(r => r.id);
-      list = list.filter(c => regionalIdsInState.includes(c.regionalId));
-    }
-    
-    // 2. Filtrar por Cidade
-    if (searchCityId) {
-      list = list.filter(c => c.cityId === searchCityId);
-    }
-
-    // 3. Filtrar por Query (Nome ou Código)
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      list = list.filter(c => 
-        c.name.toLowerCase().includes(query) || 
-        c.ccbOfficialCode.toLowerCase().includes(query) || 
-        c.shortPrefix.toLowerCase().includes(query)
-      );
-    }
-
-    return list;
-  }, [domain.congregations, domain.regionals, searchStateId, searchCityId, searchQuery]);
-
-
-  // --- Renderização de Igrejas ---
-  const renderCongregations = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Igrejas / Congregações (Identificador da Transação)</h3>
-         <button onClick={handleAddCongregation} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2">
-          <Plus size={16}/> Nova Igreja
-        </button>
-      </div>
-
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-secondary/30 rounded-lg border border-border/50">
-        <div>
-          <label className="block text-xs font-medium mb-1">Filtrar por Estado</label>
-          <select value={searchStateId} onChange={e => { setSearchStateId(e.target.value); setSearchCityId(''); }} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Todos os Estados</option>
-            {domain.states.map(s => <option key={s.id} value={s.id}>{s.name} ({s.uf})</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">Filtrar por Cidade</label>
-          <select value={searchCityId} onChange={e => setSearchCityId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" disabled={!searchStateId}>
-            <option value="">Todas as Cidades</option>
-            {domain.cities
-                .filter(c => {
-                    const regional = domain.regionals.find(r => r.id === c.regionalId);
-                    return !searchStateId || regional?.stateId === searchStateId;
-                })
-                .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-        <div className="relative">
-          <label className="block text-xs font-medium mb-1">Pesquisar (Nome/Código)</label>
-          <Search size={16} className="absolute left-3 top-1/2 mt-0.5 transform -translate-y-1/2 text-muted-foreground" />
-          <input 
-            type="text" 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Nome ou código..."
-            className="w-full h-10 rounded-md border border-input bg-background pl-10 pr-3 text-sm"
-          />
-        </div>
-      </div>
-      
-      {filteredCongregations.map(congregation => {
-        const regional = domain.regionals.find(r => r.id === congregation.regionalId);
-        const city = domain.cities.find(c => c.id === congregation.cityId);
-        const citiesFilteredByRegional = domain.cities.filter(c => c.regionalId === congregation.regionalId);
-        
-        return (
-          <AccordionItem
-            key={congregation.id}
-            id={congregation.id}
-            title={`${congregation.name} (${congregation.shortPrefix}${congregation.ccbSuffix})`}
-            subtitle={`Regional: ${regional?.name} | Cidade: ${city?.name}`}
-            onDelete={(id) => domain.setCongregations(domain.congregations.filter(k => k.id !== id))}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <TextField label="Nome da Igreja" value={congregation.name} onChange={e => updateCongregation(congregation.id, 'name', e.target.value)} />
-              <TextField label="Prefixo Curto (JB)" value={congregation.shortPrefix} onChange={e => updateCongregation(congregation.id, 'shortPrefix', e.target.value)} />
-              <TextField label="Sufixo (0059)" value={congregation.ccbSuffix} onChange={e => updateCongregation(congregation.id, 'ccbSuffix', e.target.value)} />
-              <TextField label="Código Oficial (BR-28-0059)" value={congregation.ccbOfficialCode} onChange={e => updateCongregation(congregation.id, 'ccbOfficialCode', e.target.value)} />
-              <TextField label="TXID Base (BR280059)" value={congregation.txidBase} onChange={e => updateCongregation(congregation.id, 'txidBase', e.target.value)} />
-              <TextField label="Sufixo CCB (Centavos)" value={String(congregation.extraCents || 0)} onChange={e => updateCongregation(congregation.id, 'extraCents', Number(e.target.value))} />
-            </div>
-
-            <div className="pt-4 border-t mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <label className="block text-sm font-medium mb-1">Regional (Doador do CNPJ)</label>
-                    <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={congregation.regionalId} onChange={e => { updateCongregation(congregation.id, 'regionalId', e.target.value); updateCongregation(congregation.id, 'cityId', citiesFilteredByRegional.find(c => c.regionalId === e.target.value)?.id || ''); }}>
-                       {domain.regionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">Cidade (Localização)</label>
-                    <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={congregation.cityId} onChange={e => updateCongregation(congregation.id, 'cityId', e.target.value)} disabled={citiesFilteredByRegional.length === 0}>
-                       {citiesFilteredByRegional.length === 0 && <option value="" disabled>Nenhuma cidade na Regional</option>}
-                       {citiesFilteredByRegional.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-            </div>
-          </AccordionItem>
-        );
-      })}
-    </div>
-  );
-
-  // --- Renderização de Finalidades ---
-  const renderPurposes = () => (
-     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Finalidades / Mensagens (Coletas)</h3>
-        <button onClick={handleAddPurpose} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2">
-          <Plus size={16}/> Nova Finalidade
-        </button>
-      </div>
-      
-      {domain.purposes.map(purpose => (
-        <AccordionItem
-            key={purpose.id}
-            id={purpose.id}
-            title={purpose.displayLabel}
-            subtitle={`Sufixo TXID: ${purpose.txidSuffix}`}
-            onDelete={(id) => domain.setPurposes(domain.purposes.filter(k => k.id !== id))}
-          >
-          <TextField label="Nome Interno" value={purpose.name} onChange={e => updatePurpose(purpose.id, 'name', e.target.value)} />
-          <TextField 
-            label="Label no Cartão / Mensagem no Payload" 
-            value={purpose.displayLabel} 
-            onChange={e => {
-                updatePurpose(purpose.id, 'displayLabel', e.target.value);
-                updatePurpose(purpose.id, 'messageTemplate', e.target.value); // UNIFICADO
-            }} 
-            placeholder="COLETA GERAL"
-          />
-          <TextField label="Sufixo TXID (G01)" value={purpose.txidSuffix} onChange={e => updatePurpose(purpose.id, 'txidSuffix', e.target.value)} />
           </AccordionItem>
       ))}
     </div>
   );
 
-  return (
-    <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
-      <div className="flex justify-between items-start mb-6">
-          <h2 className="text-xl font-bold">Administração de Dados</h2>
-          
-          <div className="flex gap-2">
-             <input type="file" id="backup-upload" className="hidden" accept=".json" onChange={(e) => handleImportDomain(e, domain)} />
-             <button onClick={() => document.getElementById('backup-upload')?.click()} className="flex items-center gap-2 text-sm border px-3 py-2 rounded hover:bg-secondary"><Upload size={16}/> Restaurar JSON</button>
-             <button onClick={() => handleExportDomain(domain)} className="flex items-center gap-2 text-sm border px-3 py-2 rounded hover:bg-secondary"><Download size={16}/> Backup JSON</button>
+  // Filtro de Congregações
+  const filteredCongregations = useMemo(() => {
+    let list = domain.congregations;
+    if (searchStateId) {
+       const regionalsInState = domain.regionals.filter(r => r.stateId === searchStateId).map(r => r.id);
+       list = list.filter(c => regionalsInState.includes(c.regionalId));
+    }
+    if (searchCityId) list = list.filter(c => c.cityId === searchCityId);
+    if (searchQuery) {
+       const q = searchQuery.toLowerCase();
+       list = list.filter(c => c.name.toLowerCase().includes(q) || c.shortPrefix.toLowerCase().includes(q));
+    }
+    return list;
+  }, [domain.congregations, domain.regionals, searchStateId, searchCityId, searchQuery]);
+
+  const renderCongregations = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Igrejas / Congregações</h3>
+        <button onClick={handleAddCongregation} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2"><Plus size={16}/> Nova Igreja</button>
+      </div>
+
+      {/* Filtros */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-3 bg-secondary/30 rounded-lg">
+          <select className="h-9 rounded-md border px-3 text-sm" value={searchStateId} onChange={e => { setSearchStateId(e.target.value); setSearchCityId(''); }}>
+             <option value="">Todos os Estados</option>
+             {domain.states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <select className="h-9 rounded-md border px-3 text-sm" value={searchCityId} onChange={e => setSearchCityId(e.target.value)} disabled={!searchStateId}>
+             <option value="">Todas as Cidades</option>
+             {domain.cities.filter(c => {
+                 const reg = domain.regionals.find(r => r.id === c.regionalId);
+                 return reg && reg.stateId === searchStateId;
+             }).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <div className="relative">
+              <Search size={14} className="absolute left-3 top-2.5 text-muted-foreground"/>
+              <input type="text" placeholder="Buscar..." className="h-9 w-full rounded-md border pl-9 pr-3 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           </div>
       </div>
-      
+
+      {filteredCongregations.map(cong => {
+        // Lógica para filtrar cidades da regional selecionada PARA ESTE ITEM
+        const currentRegionalCities = domain.cities.filter(c => c.regionalId === cong.regionalId);
+        
+        return (
+          <AccordionItem
+            key={cong.id}
+            id={cong.id}
+            title={cong.name}
+            subtitle={`${cong.shortPrefix}${cong.ccbSuffix}`}
+            onDelete={(id) => domain.setCongregations(domain.congregations.filter(k => k.id !== id))}
+            defaultOpen={cong.name === 'Nova Igreja'}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-1">
+                <TextField label="Nome" value={cong.name} onChange={e => updateCongregation(cong.id, 'name', e.target.value)} />
+                <div className="grid grid-cols-3 gap-2">
+                    <TextField label="Prefixo" value={cong.shortPrefix} onChange={e => updateCongregation(cong.id, 'shortPrefix', e.target.value)} />
+                    <TextField label="Sufixo" value={cong.ccbSuffix} onChange={e => updateCongregation(cong.id, 'ccbSuffix', e.target.value)} />
+                    <TextField label="Centavos" value={String(cong.extraCents)} onChange={e => updateCongregation(cong.id, 'extraCents', Number(e.target.value))} />
+                </div>
+                
+                <div className="md:col-span-2 grid grid-cols-2 gap-3 border-t pt-2">
+                    <div>
+                        <label className="block text-xs font-medium mb-1">Regional (Financeiro)</label>
+                        {/* CORREÇÃO DO BUG DE SELECT: onChange atualiza regional E reseta cidade */}
+                        <select 
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" 
+                            value={cong.regionalId || ''} 
+                            onChange={e => {
+                                const newRegId = e.target.value;
+                                const firstCity = domain.cities.find(c => c.regionalId === newRegId);
+                                updateCongregation(cong.id, 'regionalId', newRegId);
+                                updateCongregation(cong.id, 'cityId', firstCity ? firstCity.id : '');
+                            }}
+                        >
+                            {domain.regionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium mb-1">Cidade (Local)</label>
+                        <select 
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" 
+                            value={cong.cityId || ''} 
+                            onChange={e => updateCongregation(cong.id, 'cityId', e.target.value)}
+                            disabled={currentRegionalCities.length === 0}
+                        >
+                            {currentRegionalCities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {currentRegionalCities.length === 0 && <option value="">Sem cidades nesta regional</option>}
+                        </select>
+                    </div>
+                </div>
+                <TextField label="TXID Base" value={cong.txidBase} onChange={e => updateCongregation(cong.id, 'txidBase', e.target.value)} />
+            </div>
+          </AccordionItem>
+      )})}
+    </div>
+  );
+
+  const renderPurposes = () => (
+    <div className="space-y-4">
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Finalidades</h3>
+            <button onClick={handleAddPurpose} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm flex items-center gap-2"><Plus size={16}/> Nova</button>
+        </div>
+        {domain.purposes.map(p => (
+             <AccordionItem key={p.id} id={p.id} title={p.displayLabel} subtitle={p.txidSuffix} onDelete={id => domain.setPurposes(domain.purposes.filter(x => x.id !== id))} defaultOpen={p.name === 'Nova Coleta'}>
+                 <div className="grid grid-cols-2 gap-3 p-1">
+                    <TextField label="Nome Interno" value={p.name} onChange={e => updatePurpose(p.id, 'name', e.target.value)} />
+                    <TextField label="Rótulo (Cartão)" value={p.displayLabel} onChange={e => { updatePurpose(p.id, 'displayLabel', e.target.value); updatePurpose(p.id, 'messageTemplate', e.target.value); }} />
+                    <TextField label="Sufixo TXID" value={p.txidSuffix} onChange={e => updatePurpose(p.id, 'txidSuffix', e.target.value)} />
+                 </div>
+             </AccordionItem>
+        ))}
+    </div>
+  );
+
+  return (
+    <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
       <div className="flex gap-2 mb-6 border-b overflow-x-auto pb-2">
         {['regionals', 'congregations', 'finalidades'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveSection(tab)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap rounded-md transition-colors ${
-              activeSection === tab ? 'bg-secondary text-secondary-foreground' : 'hover:bg-secondary/50 text-muted-foreground'
-            }`}
-          >
+          <button key={tab} onClick={() => setActiveSection(tab)} className={`px-4 py-2 text-sm font-medium whitespace-nowrap rounded-md ${activeSection === tab ? 'bg-secondary' : ''}`}>
             {tab === 'regionals' && 'Regionais'}
             {tab === 'congregations' && 'Igrejas'}
             {tab === 'finalidades' && 'Finalidades'}
           </button>
         ))}
       </div>
-
       {activeSection === 'regionals' && renderRegionals()}
       {activeSection === 'congregations' && renderCongregations()}
       {activeSection === 'finalidades' && renderPurposes()}
-      
     </div>
   );
 };
