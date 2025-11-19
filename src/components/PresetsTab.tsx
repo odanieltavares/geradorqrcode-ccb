@@ -36,7 +36,7 @@ const PresetsTab: React.FC<PresetsTabProps> = ({ templates, selectedTemplate, on
               </h3>
               <p className="text-xs text-muted-foreground mb-2">Versão: {template.version}</p>
               
-              {/* Mini Preview Abstrato */}
+              {/* Mini Preview Abstrato Visual */}
               <div className="mt-3 h-24 bg-background border rounded flex flex-col items-center justify-center text-xs text-muted-foreground overflow-hidden relative opacity-60">
                   <div className="w-full h-2 bg-zinc-200 absolute top-2"></div>
                   <div className="w-12 h-12 border-2 border-zinc-300 rounded flex items-center justify-center mb-1">

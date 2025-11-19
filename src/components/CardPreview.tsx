@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import QRCode from 'qrcode';
 import { Template, PixData, TemplateWarning } from '../types';
 import { drawCardOnCanvas } from '../utils/cardGenerator';
+import { AlertTriangle, Download, Printer, Check, Loader2 } from 'lucide-react';
 
 interface CardPreviewProps {
   template: Template;
@@ -11,14 +12,14 @@ interface CardPreviewProps {
   warnings: TemplateWarning[];
 }
 
-const DownloadIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3" /></svg>;
-const PrinterIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>;
-const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
-
 const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, payload, warnings }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(true);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  
+  // Filtra apenas avisos de campos vazios que são obrigatórios
+  const missingFields = warnings.filter(w => w.type === 'placeholder');
+  const hasCriticalError = !payload && missingFields.length > 0;
 
   useEffect(() => {
     let isActive = true;
@@ -26,51 +27,40 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
     
     const renderCard = async () => {
       const canvas = canvasRef.current;
-      // CORREÇÃO: Não aborta mais se !payload. Apenas verifica se tem canvas.
-      if (!canvas) {
-          setIsDrawing(false);
-          return;
-      };
+      if (!canvas) return;
       
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        setIsDrawing(false);
-        return;
-      };
+      if (!ctx) return;
 
       try {
         let qrCodeDataUrl = '';
 
-        // CORREÇÃO: Gera o QR Code apenas se o payload existir.
-        // Se não existir, qrCodeDataUrl fica vazio e o gerador apenas pula o desenho do QR,
-        // mas mantém o resto do cartão.
+        // Tenta gerar o QR apenas se houver payload
         if (payload) {
-            qrCodeDataUrl = await QRCode.toDataURL(payload, {
-                errorCorrectionLevel: 'H',
-                margin: 2,
-                scale: 8,
-            });
+            try {
+                qrCodeDataUrl = await QRCode.toDataURL(payload, {
+                    errorCorrectionLevel: 'H',
+                    margin: 2,
+                    scale: 8,
+                });
+            } catch (e) {
+                console.warn("Ainda não foi possível gerar o QR Code visual.");
+            }
         }
 
+        // Desenha o cartão (Background, Textos, Assets)
         await drawCardOnCanvas(ctx, template, formData, logo, qrCodeDataUrl);
+        
         if (isActive) setIsDrawing(false);
 
       } catch (err) {
-        console.error('Failed to render card:', err);
-        // Desenha mensagem de erro no canvas se falhar drasticamente
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = '24px sans-serif';
-        ctx.fillStyle = 'red';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Erro ao renderizar', canvas.width / 2, canvas.height / 2);
+        console.error('Erro de renderização:', err);
         if (isActive) setIsDrawing(false);
       }
     };
 
-    // Pequeno delay para evitar flickering em atualizações rápidas
-    const timer = setTimeout(() => renderCard(), 50);
-    
+    // Debounce para evitar travamento na digitação
+    const timer = setTimeout(() => renderCard(), 100);
     return () => { 
       isActive = false; 
       clearTimeout(timer);
@@ -92,61 +82,59 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
   const handlePrint = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const dataUrl = canvas.toDataURL('image/png');
-    const printWindow = window.open('', '_blank');
-    printWindow?.document.write(`
-        <html>
-            <head><title>Imprimir Cartão PIX</title></head>
-            <body style="margin: 0; text-align: center;">
-                <img src="${dataUrl}" style="max-width: 100%; max-height: 100vh;" onload="window.print(); window.close();" />
-            </body>
-        </html>
-    `);
-    printWindow?.document.close();
-};
-
-  const placeholderWarnings = warnings.filter(w => w.type === 'placeholder');
+    const win = window.open('', '_blank');
+    win?.document.write(`<html><body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;"><img src="${dataUrl}" style="max-height:100%;max-width:100%;"/></body><script>window.onload=function(){window.print();window.close();}</script></html>`);
+    win?.document.close();
+  };
 
   return (
-    <div className="bg-card p-6 rounded-lg border border-border shadow-sm flex flex-col gap-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Card Preview</h2>
+    <div className="bg-card rounded-lg border border-border shadow-sm flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b bg-secondary/30 flex justify-between items-center">
+        <h2 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
+            {isDrawing ? <Loader2 className="animate-spin w-4 h-4"/> : null} Preview
+        </h2>
         <div className="flex gap-2">
-            <button onClick={handleDownload} className="flex items-center justify-center gap-2 text-sm px-3 py-1.5 border border-border rounded-md hover:bg-secondary disabled:opacity-50 w-[100px]" disabled={isDrawing || downloaded}>
-                {downloaded ? (
-                    <><CheckIcon className="w-4 h-4 text-green-500" /> Baixado</>
-                ) : (
-                    <><DownloadIcon className="w-4 h-4" /> PNG</>
-                )}
+            <button onClick={handleDownload} className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50" disabled={isDrawing || downloaded || hasCriticalError}>
+                {downloaded ? <Check size={14} className="text-green-600"/> : <Download size={14}/>} PNG
             </button>
-            <button onClick={handlePrint} className="flex items-center gap-2 text-sm px-3 py-1.5 border border-border rounded-md hover:bg-secondary disabled:opacity-50" disabled={isDrawing}>
-                <PrinterIcon className="w-4 h-4" /> Imprimir
+            <button onClick={handlePrint} className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50" disabled={isDrawing || hasCriticalError}>
+                <Printer size={14} /> Imprimir
             </button>
         </div>
       </div>
 
-      <div className="flex-grow flex items-center justify-center p-4 bg-secondary rounded-lg aspect-[1240/1748] relative">
-        {isDrawing && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-10 bg-white/50">Renderizando...</div>}
+      {/* Canvas Container */}
+      <div className="relative bg-zinc-100 dark:bg-zinc-900/50 p-6 flex justify-center">
+        
+        {/* Overlay de Aviso (Mais bonito que desenhar no canvas) */}
+        {hasCriticalError && !isDrawing && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm">
+                <div className="bg-card border border-destructive/50 text-card-foreground p-4 rounded-lg shadow-lg max-w-xs text-center">
+                    <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                    <p className="font-bold text-sm mb-2">Dados Incompletos</p>
+                    <p className="text-xs text-muted-foreground mb-3">Preencha os campos para gerar o QR Code:</p>
+                    <ul className="text-xs text-left space-y-1 bg-secondary/50 p-2 rounded">
+                        {missingFields.map(w => (
+                            <li key={w.key} className="flex items-center gap-2 text-destructive">
+                                <span className="w-1.5 h-1.5 rounded-full bg-destructive"></span>
+                                Tradução: <strong>{w.key}</strong>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        )}
+
         <canvas
           ref={canvasRef}
           width={template.canvas.width}
           height={template.canvas.height}
-          className="w-full h-full transition-opacity duration-500"
-          // Não escondemos mais totalmente o canvas durante o desenho para evitar "piscar" branco
-          style={{ opacity: isDrawing ? 0.7 : 1 }}
+          className="w-full h-auto max-w-[400px] shadow-md rounded bg-white transition-all duration-300"
+          style={{ filter: hasCriticalError ? 'grayscale(100%) blur(1px)' : 'none' }}
         />
       </div>
-       {placeholderWarnings.length > 0 && (
-            <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 text-xs rounded-lg p-3">
-                <p className="font-bold">Aviso:</p>
-                <ul className="list-disc list-inside">
-                    {placeholderWarnings.map((w, i) => w.type === 'placeholder' && (
-                       <li key={i}>Campo <strong>{w.key}</strong> vazio.</li>
-                    ))}
-                </ul>
-            </div>
-       )}
     </div>
   );
 };

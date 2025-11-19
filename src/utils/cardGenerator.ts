@@ -11,15 +11,14 @@ const loadFont = async (font: Font) => {
   
   const fontString = `${font.style} ${font.weight} 16px ${font.family}`;
   try {
-    // Timeout race to prevent eternal hanging
+    // Timeout para evitar travamento se a fonte não carregar
     await Promise.race([
         document.fonts.load(fontString),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Font load timeout')), 2000))
     ]);
     loadedFonts.add(fontIdentifier);
   } catch (e) {
-    console.warn(`Could not ensure font is loaded (or timed out): ${font.family} ${font.weight}`, e);
-    // We don't throw here, so rendering can continue with fallback fonts
+    console.warn(`Fonte não carregada (usando fallback): ${font.family}`, e);
   }
 };
 
@@ -198,26 +197,21 @@ export const drawCardOnCanvas = async (
   logo: string | null,
   qrCodeDataUrl: string,
 ) => {
-  // 1. Clear
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = template?.canvas?.background || '#FFFFFF';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // 2. Enhance Data
   const finalityOrTxid = formData.message 
     ? `FINALIDADE: ${formData.message}`
     : `IDENTIFICADOR: ${formData.txid}`;
   const enhancedData = { ...formData, finalityOrTxid };
 
-  // 3. Load Fonts (Safe Mode)
   await Promise.all((template?.fonts || []).map(loadFont));
   
-  // 4. Draw assets
   for (const key in (template?.assets || {})) {
     await drawAsset(ctx, template.assets[key], enhancedData, logo);
   }
 
-  // 5. Draw QR code
   if (qrCodeDataUrl && template?.qr) {
     try {
         const qrImg = await loadImage(qrCodeDataUrl);
@@ -227,6 +221,5 @@ export const drawCardOnCanvas = async (
     }
   }
   
-  // 6. Draw blocks
   (template?.blocks || []).forEach(block => drawBlock(ctx, block, enhancedData));
 };
