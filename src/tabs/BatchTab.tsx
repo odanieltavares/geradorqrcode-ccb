@@ -3,7 +3,7 @@ import Papa from 'papaparse';
 import JSZip from 'jszip';
 import QRCode from 'qrcode';
 import { produce } from 'immer';
-import { PixData, Template, ResolvedPixProfile } from '../types';
+import { PixData, Template, ResolvedPixProfile, TemplateWarning } from '../types';
 import { generatePixPayload, validatePixData } from '../lib/pix';
 import { getPixDataFromForm } from '../utils/pixGenerator';
 import { drawCardOnCanvas } from '../utils/cardGenerator';
@@ -15,11 +15,17 @@ import { mapProfileToPixData, resolveProfile } from '../utils/domainMapper';
 import { normalizeValue } from '../utils/textUtils';
 import TextField from '../components/TextField';
 import { v4 as uuidv4 } from 'uuid';
+import CardPreview from '../components/CardPreview';
+import QrPreview from '../components/QrPreview';
+import PayloadPreview from '../components/PayloadPreview';
 
 interface BatchTabProps {
   template: Template;
   logo: string | null;
   onPreviewData: (data: PixData | null, template: Template) => void;
+  payload: string | null;
+  warnings: TemplateWarning[];
+  previewData: PixData | null;
 }
 
 type BatchRow = {
@@ -30,10 +36,10 @@ type BatchRow = {
   txid?: string;
 };
 
-const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) => {
+const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData, payload, warnings, previewData }) => {
   const domain = useDomain();
   
-  const [mode, setMode] = useState<'csv' | 'series'>('csv');
+  const [mode, setMode] = useState<'csv' | 'series'>('series');
   const [resolvedProfile, setResolvedProfile] = useState<ResolvedPixProfile | null>(null);
   const [textInput, setTextInput] = useState('');
   const [rows, setRows] = useState<BatchRow[]>([]);
@@ -305,6 +311,14 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
                     ))}
                 </div>
             )}
+            
+            <div className="flex items-center gap-2 mt-4">
+                <button onClick={startBatchProcess} disabled={isProcessing || rows.length === 0} className="bg-primary text-primary-foreground px-4 py-2 rounded-md disabled:opacity-50 flex items-center gap-2">
+                    {isProcessing ? <Loader2 className="animate-spin"/> : <Download size={18}/>}
+                    {isProcessing ? 'Processando...' : 'Gerar Lote'}
+                </button>
+                {isProcessing && <div className="text-xs text-muted-foreground">{Math.round(progress)}%</div>}
+            </div>
 
         </div>
     );
@@ -322,16 +336,16 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
         {/* Modos */}
         <div className="flex gap-4 border-b pb-4">
             <button 
-                onClick={() => { setMode('csv'); setResolvedProfile(null); setRows([]); setTextInput(''); }} 
-                className={`px-4 py-2 text-sm font-medium rounded ${mode === 'csv' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
-            >
-                CSV / Valor Variável
-            </button>
-            <button 
                 onClick={() => { setMode('series'); setResolvedProfile(null); setRows([]); setTextInput(''); }} 
                 className={`px-4 py-2 text-sm font-medium rounded ${mode === 'series' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
             >
                 Seleção em Série (Igrejas)
+            </button>
+            <button 
+                onClick={() => { setMode('csv'); setResolvedProfile(null); setRows([]); setTextInput(''); }} 
+                className={`px-4 py-2 text-sm font-medium rounded ${mode === 'csv' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+            >
+                CSV / Valor Variável
             </button>
         </div>
 
@@ -358,6 +372,13 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
                     />
                 </div>
                 <Dropzone onDrop={handleFileDrop} accept={{ 'text/csv': ['.csv'] }} label="Ou Enviar Arquivo CSV" description="O conteúdo será colado na área de texto."/>
+                
+                 <div className="flex items-center gap-2 mt-4">
+                    <button onClick={startBatchProcess} disabled={isProcessing || rows.length === 0} className="bg-primary text-primary-foreground px-4 py-2 rounded-md disabled:opacity-50 flex items-center gap-2">
+                        {isProcessing ? <Loader2 className="animate-spin"/> : <Download size={18}/>}
+                        {isProcessing ? 'Processando...' : 'Gerar Lote'}
+                    </button>
+                </div>
             </div>
         )}
         
@@ -365,7 +386,18 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
         {mode === 'series' && renderSeriesSelector()}
       </div>
       
-      {/* Coluna de Previews (Será movida para o App.tsx) */}
+      {/* Coluna de Previews (Sidebar) */}
+      <div className="space-y-8 sticky top-24">
+        <CardPreview
+          template={template}
+          formData={previewData || {} as PixData}
+          logo={logo}
+          payload={payload}
+          warnings={warnings}
+        />
+        <QrPreview qrCodeValue={payload || undefined} txid={previewData?.txid} />
+        <PayloadPreview payload={payload || undefined} txid={previewData?.txid} />
+      </div>
     </div>
   );
 };

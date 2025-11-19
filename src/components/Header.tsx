@@ -27,10 +27,11 @@ const SunIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
   const handleShare = async () => {
+    const url = window.location.href.startsWith('http') ? window.location.href : 'https://pix-qr-generator.vercel.app';
     const shareData = {
       title: 'PIX QR Generator',
       text: 'Gere cartões e QR Codes PIX facilmente!',
-      url: window.location.href
+      url: url
     };
     try {
       if (navigator.share) {
@@ -58,7 +59,7 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme }) => {
             </button>
             <button 
               onClick={handleShare}
-              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
               Compartilhar
             </button>

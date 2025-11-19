@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// IMPORTAÇÕES CORRIGIDAS: Adicionando CardPreview e outros componentes genéricos
 import Header from './components/Header';
-import CardPreview from './components/CardPreview'; // <-- CORREÇÃO
+import CardPreview from './components/CardPreview';
 import QrPreview from './components/QrPreview';
 import PayloadPreview from './components/PayloadPreview';
 import { Dropzone } from './components/Dropzone';
@@ -133,12 +132,15 @@ const AppContent: React.FC = () => {
                     />
                 )}
                 
-                {/* Batch Tab (Passando o handler de preview) */}
+                {/* Batch Tab (Passando o handler de preview e dados de preview) */}
                 {activeTab === 'batch' && (
                     <BatchTab 
                         template={previewTemplate} 
                         logo={logo} 
                         onPreviewData={handlePreviewData}
+                        payload={payload}
+                        warnings={warnings}
+                        previewData={previewData}
                     />
                 )}
 
@@ -165,26 +167,22 @@ const AppContent: React.FC = () => {
                                 </div>
                             )}
                         </div>
+                        {/* Preview na aba de templates para referência visual */}
+                         <div className="mt-6">
+                             <h3 className="text-lg font-bold mb-4">Visualização do Template</h3>
+                             <div className="max-w-md mx-auto border rounded">
+                                 <CardPreview
+                                    template={previewTemplate}
+                                    formData={previewData || {} as PixData}
+                                    logo={logo}
+                                    payload={payload}
+                                    warnings={warnings}
+                                />
+                             </div>
+                         </div>
                     </div>
                 )}
                 
-                {/* Card, QR e Payload Previews Globais */}
-                {activeTab !== 'templates' && (
-                    <div className="sticky top-24 lg:col-span-1 hidden lg:block">
-                        <h3 className="text-lg font-bold mb-4">Preview Global</h3>
-                        <CardPreview
-                            template={previewTemplate}
-                            formData={previewData || {} as PixData}
-                            logo={logo}
-                            payload={payload}
-                            warnings={warnings}
-                        />
-                        <div className="mt-8 space-y-4">
-                            <QrPreview qrCodeValue={payload || undefined} txid={previewData?.txid} />
-                            <PayloadPreview payload={payload || undefined} txid={previewData?.txid} />
-                        </div>
-                    </div>
-                )}
             </main>
         </div>
     );

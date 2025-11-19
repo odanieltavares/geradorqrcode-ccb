@@ -1,31 +1,9 @@
+
 export interface State {
   id: string;
   name: string;          // "Tocantins"
   uf: string;            // "TO"
   ccbStateCode: string;  // "28" (usado em códigos BR-28-XXXX)
-}
-
-export interface Regional {
-  id: string;
-  name: string;          // "Regional Porto Nacional"
-  stateId: string;       // referencia State.id
-  code?: string;         // opcional, ex: "RN-PN"
-}
-
-export interface City {
-  id: string;
-  name: string;          // "Porto Nacional"
-  regionalId: string;    // referencia Regional.id
-}
-
-export interface Congregation {
-  id: string;
-  name: string;              // "Jardim Brasília"
-  cityId: string;            // referencia City.id
-  ccbOfficialCode: string;   // "BR-28-0059"
-  ccbSuffix: string;         // "0059" (parte final)
-  shortPrefix: string;       // "JB" (para gerar JB0059)
-  isCentral: boolean;        // true se for "central"
 }
 
 export interface Bank {
@@ -38,36 +16,48 @@ export interface Bank {
   accountPattern?: string; // Regex string opcional
 }
 
-export type PixKeyType = 'CNPJ';
-
-export interface PixKey {
+// REGIONAL (Dados Financeiros e Sede Administrativa)
+export interface Regional {
   id: string;
-  type: PixKeyType;      
-  cnpj: string;          // armazenar somente dígitos (sem máscara)
-  ownerName: string;     // Nome do titular que aparece no banco
-  bankId: string;        // referencia Bank.id
-  bankAgency: string;    // somente dígitos, sem máscara
-  bankAccount: string;   // somente dígitos, sem máscara
-  regionalId?: string;   // Vínculo principal: Chave pertence a uma Regional
+  name: string;          // "Regional Porto Nacional"
+  stateId: string;       // referencia State.id
+  code?: string;         // opcional, ex: "RN-PN"
   active: boolean;
+  
+  // Dados de CNPJ/Banco
+  cnpj: string;          // Somente dígitos
+  ownerName: string;     // Nome do titular
+  bankId: string;        // referencia Bank.id
+  bankAgency: string;    // Somente dígitos
+  bankAccount: string;   // Somente dígitos
+  regionalCityName: string; // "Porto Nacional" (Nome da cidade para o payload)
 }
 
-export type PixIdentifierStrategy = 'TXID_ONLY' | 'CENTS_ONLY' | 'TXID_PLUS_CENTS';
-
-export interface PixIdentifier {
+export interface City {
   id: string;
-  code: string;          // "JB0059" (identificador humano da igreja)
-  congregationId: string;
-  pixKeyId: string;      // Qual chave PIX este identificador usa (herdada da regional ou específica)
-  txidBase: string;      // ex: "BR280059"
-  strategy: PixIdentifierStrategy;
-  description?: string;  
+  name: string;          // "Porto Nacional"
+  regionalId: string;    // referencia Regional.id
+}
+
+// CONGREGATION (Identificação da Transação)
+export interface Congregation {
+  id: string;
+  name: string;              // "Jardim Brasília"
+  cityId: string;            // referencia City.id
+  regionalId: string;        // Vínculo direto à Regional
+  
+  ccbOfficialCode: string;   // "BR-28-0059"
+  ccbSuffix: string;         // "0059" (parte final)
+  shortPrefix: string;       // "JB" (para gerar JB0059)
+  isCentral: boolean;        // true se for "central"
+  
+  txidBase: string;          // ex: "BR280059"
+  extraCents: number | null;
   active: boolean;
 }
 
 export interface PixPurpose {
   id: string;
-  pixIdentifierId: string;  // referencia PixIdentifier.id
   name: string;             // "Coleta geral", "Fundo bíblico"
   displayLabel: string;     // como aparece no cartão: "COLETA GERAL JB0059"
   messageTemplate: string;  // texto que vai para o campo mensagem do PIX
@@ -82,8 +72,6 @@ export interface ResolvedPixProfile {
   city: City;
   congregation: Congregation;
   bank: Bank;
-  pixKey: PixKey;
-  pixIdentifier: PixIdentifier;
   pixPurpose: PixPurpose;
   
   // Campos computados

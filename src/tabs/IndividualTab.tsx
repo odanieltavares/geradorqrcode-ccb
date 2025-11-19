@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import CardPreview from '../components/CardPreview'; // <-- Import necessário!
 import QrPreview from '../components/QrPreview';
@@ -92,7 +93,7 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
                         label="Valor (opcional)"
                         placeholder="0,00"
                         value={formatValue(amount, { id: 'amount', type: 'currency', label: '' })}
-                        onChange={handleAmountChange}
+                        onChange={(e) => handleAmountChange(e.target.value)}
                     />
                      <TextField
                         label="Mensagem (Opcional)"
