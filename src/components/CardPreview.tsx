@@ -26,7 +26,8 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
     
     const renderCard = async () => {
       const canvas = canvasRef.current;
-      if (!canvas || !payload) {
+      // CORREÇÃO: Não aborta mais se !payload. Apenas verifica se tem canvas.
+      if (!canvas) {
           setIsDrawing(false);
           return;
       };
@@ -38,28 +39,37 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
       };
 
       try {
-        const qrCodeDataUrl = await QRCode.toDataURL(payload, {
-            errorCorrectionLevel: 'H',
-            margin: 2,
-            scale: 8,
-        });
+        let qrCodeDataUrl = '';
+
+        // CORREÇÃO: Gera o QR Code apenas se o payload existir.
+        // Se não existir, qrCodeDataUrl fica vazio e o gerador apenas pula o desenho do QR,
+        // mas mantém o resto do cartão.
+        if (payload) {
+            qrCodeDataUrl = await QRCode.toDataURL(payload, {
+                errorCorrectionLevel: 'H',
+                margin: 2,
+                scale: 8,
+            });
+        }
 
         await drawCardOnCanvas(ctx, template, formData, logo, qrCodeDataUrl);
         if (isActive) setIsDrawing(false);
 
       } catch (err) {
         console.error('Failed to render card:', err);
+        // Desenha mensagem de erro no canvas se falhar drasticamente
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = '16px Arial';
+        ctx.font = '24px sans-serif';
         ctx.fillStyle = 'red';
         ctx.textAlign = 'center';
-        ctx.fillText('Erro ao renderizar cartão.', canvas.width / 2, canvas.height / 2);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Erro ao renderizar', canvas.width / 2, canvas.height / 2);
         if (isActive) setIsDrawing(false);
       }
     };
 
-    // A small delay to make the loading state more noticeable on fast renders
-    const timer = setTimeout(() => renderCard(), 100);
+    // Pequeno delay para evitar flickering em atualizações rápidas
+    const timer = setTimeout(() => renderCard(), 50);
     
     return () => { 
       isActive = false; 
@@ -117,24 +127,22 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
       </div>
 
       <div className="flex-grow flex items-center justify-center p-4 bg-secondary rounded-lg aspect-[1240/1748] relative">
-        {isDrawing && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">Renderizando...</div>}
+        {isDrawing && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-10 bg-white/50">Renderizando...</div>}
         <canvas
           ref={canvasRef}
           width={template.canvas.width}
           height={template.canvas.height}
           className="w-full h-full transition-opacity duration-500"
-          style={{ opacity: isDrawing ? 0 : 1 }}
+          // Não escondemos mais totalmente o canvas durante o desenho para evitar "piscar" branco
+          style={{ opacity: isDrawing ? 0.7 : 1 }}
         />
-        <div id="print-area" style={{display: 'none'}}>
-            {/* This could be used for a higher-res printable version if needed */}
-        </div>
       </div>
        {placeholderWarnings.length > 0 && (
             <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 text-xs rounded-lg p-3">
                 <p className="font-bold">Aviso:</p>
                 <ul className="list-disc list-inside">
                     {placeholderWarnings.map((w, i) => w.type === 'placeholder' && (
-                       <li key={i}>O campo <strong>{w.key}</strong> está vazio mas é usado no template.</li>
+                       <li key={i}>Campo <strong>{w.key}</strong> vazio.</li>
                     ))}
                 </ul>
             </div>

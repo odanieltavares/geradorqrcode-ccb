@@ -77,14 +77,33 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
         dataToShow = baseData;
     }
 
+    // Se não houver item ativo mas tivermos dados para mostrar, define o ativo.
     if (!activePreviewData && dataToShow) {
         setActivePreviewData(dataToShow);
     }
-
+    
     // Notifica o App (consistência global)
     onPreviewData(dataToShow, template);
 
   }, [rows, resolvedProfile, baseData, template, onPreviewData, activePreviewData]);
+
+  // 3. CORREÇÃO CRÍTICA: Gerar Payload para o Preview
+  // O CardPreview precisa de um payload válido para renderizar.
+  // Calculamos isso em tempo real apenas para o item visualizado.
+  const previewPayload = useMemo(() => {
+    const data = activePreviewData || baseData;
+    // Verifica se tem dados mínimos para gerar payload
+    if (!data || Object.keys(data).length === 0) return null;
+    
+    try {
+        const pixData = getPixDataFromForm(template, data);
+        // Se faltar chave PIX, não gera (evita erro no qrcode lib)
+        if (!pixData.key) return null; 
+        return generatePixPayload(pixData);
+    } catch (e) {
+        return null;
+    }
+  }, [activePreviewData, baseData, template]);
 
 
   // --- Lógica de Modos ---
@@ -193,6 +212,7 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
       const row = rows[i];
       const finalData = row.data;
       
+      // Atualiza visualmente o preview durante o processo
       setActivePreviewData(finalData); 
 
       const pixDataForPayload = getPixDataFromForm(template, finalData);
@@ -220,7 +240,6 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
 
         // B. Exportar QR Code PNG
         if (exportQrCodes) {
-            // Converte DataURL para Blob para adicionar ao ZIP
             const response = await fetch(qrCodeDataUrl);
             const qrBlob = await response.blob();
             zip.file(`${baseFileName}_qr.png`, qrBlob);
@@ -460,12 +479,12 @@ const BatchTab: React.FC<BatchTabProps> = ({ template, logo, onPreviewData }) =>
                 {activePreviewData && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{activePreviewData.neighborhood || 'Item Selecionado'}</span>}
             </div>
             
-            {/* Apenas o CardPreview é exibido aqui, conforme solicitado */}
+            {/* PASSANDO previewPayload AO INVÉS DE null */}
             <CardPreview
                 template={template}
                 formData={activePreviewData || baseData}
                 logo={logo}
-                payload={null} 
+                payload={previewPayload} 
                 warnings={[]}
             />
          </div>
