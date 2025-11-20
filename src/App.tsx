@@ -4,8 +4,8 @@ import IndividualTab from './tabs/IndividualTab';
 import BatchTab from './tabs/BatchTab';
 import AdminTab from './tabs/RegistrationsTab';
 // MUDANÇA 1: Importando o componente visual correto
-import PresetsTab from './components/PresetsTab'; 
-import CardPreview from './components/CardPreview'; 
+import PresetsTab from './components/PresetsTab';
+import CardPreview from './components/CardPreview';
 import { Dropzone } from './components/Dropzone';
 
 import useLocalStorage from './hooks/useLocalStorage';
@@ -31,16 +31,16 @@ const defaultFormData: PixData = {
 };
 
 const AppContent: React.FC = () => {
-    const [theme, setTheme] = useLocalStorage('theme', 'dark');
+    const [theme, setTheme] = useLocalStorage('theme', 'light'); // Tema padrão alterado para light
     const [activeTab, setActiveTab] = useState('individual');
-    
+
     const [formData, setFormData] = useLocalStorage<PixData>('formData', defaultFormData);
-    
+
     // Estado Global para Preview
     const [previewData, setPreviewData] = useState<PixData | null>(formData);
     const [previewTemplate, setPreviewTemplate] = useState<Template>(ccbClassicTemplate);
     const [logo, setLogo] = useLocalStorage<string | null>('logo', null);
-    
+
     // Garante que o preview inicial tenha dados
     useEffect(() => {
         if (!previewData && formData) {
@@ -49,10 +49,10 @@ const AppContent: React.FC = () => {
         // Sincroniza o template do preview com o salvo
         const savedTemplate = localStorage.getItem('template');
         if (savedTemplate) {
-             try {
-                 const parsed = JSON.parse(savedTemplate);
-                 setPreviewTemplate(parsed);
-             } catch (e) {}
+            try {
+                const parsed = JSON.parse(savedTemplate);
+                setPreviewTemplate(parsed);
+            } catch (e) { }
         }
     }, []);
 
@@ -103,10 +103,16 @@ const AppContent: React.FC = () => {
             Object.values(previewTemplate?.assets || {})
                 .map(a => (a as Asset).source)
                 .join(' ');
-        
+
         const placeholders = combinedText.match(/\{\{(\w+)\}\}/g) || [];
+        // Campos que são computados/opcionais e não devem gerar warning
+        const ignoredFields = ['finalityOrTxid', 'logo', 'displayValue', 'message'];
+
         for (const p of placeholders) {
             const key = p.replace(/\{|\}/g, '');
+            // Ignora campos computados ou opcionais
+            if (ignoredFields.includes(key)) continue;
+
             // Verifica no previewData ou no formData como fallback
             const val = previewData?.[key as keyof PixData] || formData?.[key as keyof PixData];
             if (!val) {
@@ -115,7 +121,7 @@ const AppContent: React.FC = () => {
         }
         return warns;
     }, [previewTemplate, previewData, formData]);
-    
+
     const handleSelectTemplate = (t: Template) => {
         setPreviewTemplate(t);
         // Salva no localStorage para persistir a escolha
@@ -134,8 +140,8 @@ const AppContent: React.FC = () => {
                 </div>
 
                 {activeTab === 'individual' && (
-                    <IndividualTab 
-                        formData={formData} 
+                    <IndividualTab
+                        formData={formData}
                         setFormData={setFormData}
                         errors={errors}
                         payload={payload}
@@ -145,26 +151,26 @@ const AppContent: React.FC = () => {
                         onPreviewData={handlePreviewData}
                     />
                 )}
-                
+
                 {activeTab === 'batch' && (
-                    <BatchTab 
-                        template={previewTemplate} 
-                        logo={logo} 
+                    <BatchTab
+                        template={previewTemplate}
+                        logo={logo}
                         onPreviewData={handlePreviewData}
                     />
                 )}
 
-                {activeTab === 'admin' && <AdminTab />} 
-                
+                {activeTab === 'admin' && <AdminTab />}
+
                 {/* ABA TEMPLATES REFORMULADA (Layout 50/50) */}
                 {activeTab === 'templates' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                         {/* Coluna Esquerda: Lista de Templates e Upload */}
                         <div className="bg-card p-6 rounded-lg border border-border shadow-sm space-y-6">
-                            <PresetsTab 
-                                templates={allTemplates} 
-                                selectedTemplate={previewTemplate} 
-                                onSelectTemplate={handleSelectTemplate} 
+                            <PresetsTab
+                                templates={allTemplates}
+                                selectedTemplate={previewTemplate}
+                                onSelectTemplate={handleSelectTemplate}
                             />
                             <div className="space-y-2 pt-4 border-t">
                                 <label className="text-sm font-medium">Logo Personalizada (Opcional)</label>
@@ -176,7 +182,7 @@ const AppContent: React.FC = () => {
                                 />
                                 {logo && (
                                     <div className="mt-4 relative group border rounded p-2 inline-block">
-                                        <img src={logo} alt="Logo preview" className="h-12"/>
+                                        <img src={logo} alt="Logo preview" className="h-12" />
                                         <button onClick={() => setLogo(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-sm hover:bg-red-600">X</button>
                                     </div>
                                 )}
@@ -202,7 +208,7 @@ const AppContent: React.FC = () => {
                         </div>
                     </div>
                 )}
-                
+
             </main>
         </div>
     );

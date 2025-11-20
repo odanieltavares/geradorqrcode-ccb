@@ -9,7 +9,7 @@ interface HierarchySelectorProps {
 
 const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved }) => {
   const domain = useDomain();
-  
+
   const [stateId, setStateId] = useState('');
   const [regionalId, setRegionalId] = useState('');
   const [cityId, setCityId] = useState('');
@@ -31,14 +31,15 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
     } else {
       onProfileResolved(null);
     }
-  }, [stateId, regionalId, cityId, congregationId, purposeId, domain, onProfileResolved]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateId, regionalId, cityId, congregationId, purposeId]);
 
   // Filtering options
   const filteredRegionals = domain.regionals.filter(r => r.stateId === stateId);
   const filteredCities = domain.cities.filter(c => c.regionalId === regionalId);
   // As congregações são filtradas pela Cidade (que está na Regional)
   const filteredCongregations = domain.congregations.filter(c => c.cityId === cityId && c.regionalId === regionalId);
-  
+
   // Finalidades são globais neste modelo simplificado, mas podem ser filtradas por Regional no futuro.
   const availablePurposes = domain.purposes.filter(p => p.active);
 
@@ -57,33 +58,33 @@ const HierarchySelector: React.FC<HierarchySelectorProps> = ({ onProfileResolved
       <div>
         <label className="block text-xs font-medium mb-1">2. Regional (Sede Adm.)</label>
         <select value={regionalId} onChange={e => setRegionalId(e.target.value)} className={selectClass} disabled={!stateId}>
-           <option value="">Selecione...</option>
-           {filteredRegionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          <option value="">Selecione...</option>
+          {filteredRegionals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </div>
 
       <div>
         <label className="block text-xs font-medium mb-1">3. Cidade (Local)</label>
         <select value={cityId} onChange={e => setCityId(e.target.value)} className={selectClass} disabled={!regionalId}>
-           <option value="">Selecione...</option>
-           {filteredCities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <option value="">Selecione...</option>
+          {filteredCities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
       <div>
         <label className="block text-xs font-medium mb-1">4. Igreja (Comum)</label>
         <select value={congregationId} onChange={e => setCongregationId(e.target.value)} className={selectClass} disabled={!cityId}>
-           <option value="">Selecione...</option>
-           {filteredCongregations.length === 0 && cityId && <option value="" disabled>Nenhuma igreja nesta cidade/regional</option>}
-           {filteredCongregations.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <option value="">Selecione...</option>
+          {filteredCongregations.length === 0 && cityId && <option value="" disabled>Nenhuma igreja nesta cidade/regional</option>}
+          {filteredCongregations.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
       <div className="md:col-span-2">
         <label className="block text-xs font-medium mb-1">5. Finalidade (Tipo de Coleta)</label>
         <select value={purposeId} onChange={e => setPurposeId(e.target.value)} className={selectClass} disabled={!congregationId}>
-           <option value="">Selecione...</option>
-           {availablePurposes.map(p => <option key={p.id} value={p.id}>{p.displayLabel}</option>)}
+          <option value="">Selecione...</option>
+          {availablePurposes.map(p => <option key={p.id} value={p.id}>{p.displayLabel}</option>)}
         </select>
       </div>
     </div>
