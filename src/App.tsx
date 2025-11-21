@@ -64,10 +64,10 @@ const AppContent: React.FC = () => {
         }
     }, [previewTemplate]);
 
-    const handlePreviewData = useCallback((data: PixData | null, template: Template) => {
+    const handlePreviewData = useCallback((data: PixData | null, template: Template | null) => {
         setPreviewData(data);
-        setPreviewTemplate(template);
-    }, []);
+        setPreviewTemplate(template || previewTemplate);
+    }, [previewTemplate]);
 
     useEffect(() => {
         document.documentElement.className = theme;

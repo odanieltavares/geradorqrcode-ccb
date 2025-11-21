@@ -8,24 +8,24 @@ export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string
   // Formata campos bancários para EXIBIÇÃO NO CARTÃO usando as máscaras do Banco
   const agencyDisplay = applyMask(regional.bankAgency, bank.agencyMask);
   const accountDisplay = applyMask(regional.bankAccount, bank.accountMask);
-  
+
   // String completa de dados bancários
   const bankDisplay = `${bank.name} - Ag: ${agencyDisplay} - CC: ${accountDisplay}`;
 
   // NOME DO RECEBEDOR: Nome da Chave (Regional)
   const receiverName = regional.ownerName;
-  
+
   // Valor com Sufixo CCB (Centavos) se não houver valor preenchido
   let finalAmount = amount || '';
   let displayValue = finalAmount ? `R$ ${finalAmount}` : 'R$ ***,00';
-  
+
   if (!finalAmount && congregation.extraCents !== null) {
-      // Aplica o sufixo de centavos
-      displayValue = `R$ ***,${String(congregation.extraCents).padStart(2, '0')}`;
+    // Aplica o sufixo de centavos
+    displayValue = `R$ ***,${String(congregation.extraCents).padStart(2, '0')}`;
   }
 
 
-  return {
+  const pixData = {
     // Campos padrões do Payload PIX
     name: receiverName,
     key: formatCnpj(regional.cnpj), // Exibe CNPJ formatado no input
@@ -33,7 +33,7 @@ export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string
     txid: profile.txid,
     amount: finalAmount,
     message: profile.message,
-    
+
     // Campos de Display (Cartão)
     displayValue: displayValue,
     location: profile.city.name.toUpperCase(), // Localização é a Cidade da Congregação
@@ -41,18 +41,20 @@ export const mapProfileToPixData = (profile: ResolvedPixProfile, amount?: string
     bank: `${bank.name} - ${bank.code}`,
     agency: agencyDisplay,
     account: accountDisplay,
-    
+
     // Campos extras para novos templates
     regionalName: regional.name.toUpperCase(),
     congregationCode: `${congregation.shortPrefix}${congregation.ccbSuffix}`, // Ex: JB0059
     purposeLabel: pixPurpose.displayLabel,
     bankDisplay: bankDisplay
   };
+
+  return pixData;
 };
 
 export const resolveProfile = (
   stateId: string, regionalId: string, cityId: string, congregationId: string, purposeId: string,
-  domain: any 
+  domain: any
 ): ResolvedPixProfile | null => {
   const state = domain.states.find((s: any) => s.id === stateId);
   const regional = domain.regionals.find((r: any) => r.id === regionalId);
@@ -61,8 +63,10 @@ export const resolveProfile = (
   const purpose = domain.purposes.find((p: any) => p.id === purposeId);
 
   // Note: Regional e CityId são necessários para o HierarchySelector
-  if (!state || !regional || !city || !congregation || !purpose) return null;
-  
+  if (!state || !regional || !city || !congregation || !purpose) {
+    return null;
+  }
+
   // 1. Encontrar o Banco (Dados Financeiros vêm da Regional)
   const bank = domain.banks.find((b: any) => b.id === regional.bankId);
   if (!bank) return null;
@@ -75,7 +79,7 @@ export const resolveProfile = (
   // A Mensagem é unificada: Label no Cartão = Mensagem no Payload
   const message = purpose.displayLabel;
 
-  return {
+  const profile = {
     state,
     regional,
     city,
@@ -85,4 +89,6 @@ export const resolveProfile = (
     txid,
     message
   };
+
+  return profile;
 };
