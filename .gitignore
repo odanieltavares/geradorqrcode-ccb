@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# CORREÇÃO CRÍTICA #2: Proteção de variáveis de ambiente
+.env
+.env.local
+.env.*.local
+.env.production
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

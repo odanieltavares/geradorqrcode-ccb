@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import QRCode from 'qrcode';
 import { Template, PixData, TemplateWarning } from '../types';
 import { drawCardOnCanvas } from '../utils/cardGenerator';
-import { AlertTriangle, Download, Printer, Check, Loader2 } from 'lucide-react';
+import { forceDownload } from '../utils/downloadHelper';
+import { AlertTriangle, Download, Printer, Check, Loader2, Share2 } from 'lucide-react';
 
 interface CardPreviewProps {
   template: Template;
@@ -16,6 +17,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [shared, setShared] = useState(false);
 
   // Filtra apenas avisos de campos vazios que são obrigatórios
   const missingFields = warnings.filter(w => w.type === 'placeholder');
@@ -67,16 +69,52 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
     };
   }, [template, formData, logo, payload]);
 
+  // CORREÇÃO BUG #8: Usar forceDownload para garantir compatibilidade cross-browser
   const handleDownload = useCallback(() => {
     const canvas = canvasRef.current;
     if (canvas) {
-      const link = document.createElement('a');
-      link.download = `card_${formData.txid || 'pix'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      setDownloaded(true);
-      setTimeout(() => setDownloaded(false), 2000);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          forceDownload(blob, `card_${formData.txid || 'pix'}.png`, 'image/png');
+          setDownloaded(true);
+          setTimeout(() => setDownloaded(false), 2000);
+        }
+      });
     }
+  }, [formData.txid]);
+
+  // CORREÇÃO BUG #9: Adicionar compartilhamento WhatsApp
+  const handleShare = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      const file = new File([blob], `card_${formData.txid || 'pix'}.png`, { type: 'image/png' });
+
+      // Detecta se suporta Web Share API (mobile principalmente)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Cartão PIX',
+            text: 'Confira o cartão PIX para doação'
+          });
+          setShared(true);
+          setTimeout(() => setShared(false), 2000);
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            console.error('Erro ao compartilhar:', err);
+          }
+        }
+      } else {
+        // Fallback: Baixa imagem e abre WhatsApp com mensagem
+        forceDownload(blob, `card_${formData.txid || 'pix'}.png`, 'image/png');
+        const text = encodeURIComponent('Confira o cartão PIX! 🙏\n\nBaixei a imagem. Escaneie o QR Code para fazer sua doação.');
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+    });
   }, [formData.txid]);
 
   const handlePrint = () => {
@@ -95,11 +133,30 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
         <h2 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
           {isDrawing ? <Loader2 className="animate-spin w-4 h-4" /> : null} Preview
         </h2>
+        {/* CORREÇÃO BUG #9: Botões de ação com WhatsApp */}
         <div className="flex gap-2">
-          <button onClick={handleDownload} className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50" disabled={isDrawing || downloaded || hasCriticalError}>
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50"
+            disabled={isDrawing || downloaded || hasCriticalError}
+            title="Baixar como PNG"
+          >
             {downloaded ? <Check size={14} className="text-green-600" /> : <Download size={14} />} PNG
           </button>
-          <button onClick={handlePrint} className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50" disabled={isDrawing || hasCriticalError}>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50"
+            disabled={isDrawing || shared || hasCriticalError}
+            title="Compartilhar via WhatsApp"
+          >
+            {shared ? <Check size={14} className="text-green-600" /> : <Share2 size={14} />} WhatsApp
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 text-xs px-3 py-1.5 border rounded hover:bg-background transition-colors disabled:opacity-50"
+            disabled={isDrawing || hasCriticalError}
+            title="Imprimir cartão"
+          >
             <Printer size={14} /> Imprimir
           </button>
         </div>
@@ -116,12 +173,31 @@ const CardPreview: React.FC<CardPreviewProps> = ({ template, formData, logo, pay
               <p className="font-bold text-sm mb-2">Dados Incompletos</p>
               <p className="text-xs text-muted-foreground mb-3">Preencha os campos para gerar o QR Code:</p>
               <ul className="text-xs text-left space-y-1 bg-secondary/50 p-2 rounded">
-                {missingFields.map(w => (
-                  <li key={w.key} className="flex items-center gap-2 text-destructive">
-                    <span className="w-1.5 h-1.5 rounded-full bg-destructive"></span>
-                    Tradução: <strong>{w.key}</strong>
-                  </li>
-                ))}
+                {missingFields.map(w => {
+                  // Mapa de tradução de campos
+                  const fieldTranslations: Record<string, string> = {
+                    'name': 'Nome do recebedor',
+                    'key': 'Chave PIX (CNPJ)',
+                    'city': 'Cidade',
+                    'txid': 'Identificador (TXID)',
+                    'neighborhood': 'Bairro/Comum',
+                    'location': 'Localização',
+                    'purpose': 'Finalidade',
+                    'regionalName': 'Regional',
+                    'purposeLabel': 'Finalidade',
+                    'displayValue': 'Valor (exibição)',
+                    'bank': 'Banco',
+                    'agency': 'Agência',
+                    'account': 'Conta corrente',
+                  };
+                  const translatedKey = fieldTranslations[w.key] || w.key;
+                  return (
+                    <li key={w.key} className="flex items-center gap-2 text-destructive">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive"></span>
+                      <strong>{translatedKey}</strong>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>

@@ -98,34 +98,106 @@ export const ccbClassicTemplate: Template = {
   },
 };
 
+// CORREÇÃO BUG #10: Template Minimalista redesenhado baseado na imagem fornecida
 export const minimalTemplate: Template = {
-  id: 'minimal-v1',
+  id: 'minimal-v2',
   name: 'Minimalista',
-  version: 1,
-  canvas: { width: 800, height: 1000, dpi: 300, background: '#FFFFFF' },
-  fonts: [{ family: 'Inter', weight: 400, style: 'normal' }, { family: 'Inter', weight: 700, style: 'normal' }],
-  assets: {
-    logo: { source: '{{logo}}', x: 300, y: 50, w: 200, h: 100, fit: 'contain' }
+  version: 2,
+  canvas: {
+    width: 1240,
+    height: 1750,
+    dpi: 300,
+    background: '#FFFFFF'
   },
-  qr: { payload: '{{payload}}', x: 250, y: 200, size: 300, frame: 'square' },
+  fonts: [
+    { family: 'Inter', weight: 400, style: 'normal' },
+    { family: 'Inter', weight: 700, style: 'normal' }
+  ],
+  assets: {
+    logo: {
+      source: '{{logo}}',
+      x: 420,
+      y: 80,
+      w: 400,
+      h: 120,
+      fit: 'contain'
+    }
+  },
+  qr: {
+    payload: '{{payload}}',
+    x: 770,
+    y: 350,
+    size: 500,
+    frame: 'none'
+  },
   blocks: [
-    { type: 'text', id: 'title', text: 'Pague com PIX', x: 400, y: 180, font: { family: 'Inter', weight: 700, size: 32, style: 'normal' }, align: 'center' },
-    { type: 'text', id: 'name', text: '{{name}}', x: 400, y: 550, font: { family: 'Inter', weight: 700, size: 24, style: 'normal' }, align: 'center' },
-    { type: 'text', id: 'txid', text: 'ID: {{txid}}', x: 400, y: 580, font: { family: 'Inter', weight: 400, size: 16, style: 'normal' }, align: 'center' },
-    { type: 'text', id: 'amount', text: 'Valor: {{displayValue}}', x: 400, y: 620, font: { family: 'Inter', weight: 400, size: 20, style: 'normal' }, align: 'center' },
+    // Borda externa pontilhada
+    { type: 'rule', style: 'dashed', x: 80, y: 80, w: 1080, h: 4, dash: [12, 8] },
+    { type: 'rule', style: 'dashed', x: 80, y: 80, w: 4, h: 1590, dash: [12, 8] },
+    { type: 'rule', style: 'dashed', x: 80, y: 1666, w: 1080, h: 4, dash: [12, 8] },
+    { type: 'rule', style: 'dashed', x: 1156, y: 80, w: 4, h: 1590, dash: [12, 8] },
+
+    // Seção superior - Logo e título
+    { type: 'text', id: 'church-name', text: 'CONGREGAÇÃO CRISTÃ\\nNO BRASIL', x: 620, y: 260, font: { family: 'Inter', weight: 700, size: 42, style: 'normal' }, align: 'center' },
+
+    // Linha separadora após logo
+    { type: 'rule', style: 'dashed', x: 150, y: 300, w: 940, h: 2, dash: [10, 6] },
+
+    // Coluna Esquerda - Dados da igreja
+    { type: 'text', id: 'church-location', text: 'IGREJA | {{location}}', x: 150, y: 380, font: { family: 'Inter', weight: 700, size: 28, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'admin-note', text: 'EM CASO DE DÚVIDAS PROCURAR\\nA ADMINISTRAÇÃO', x: 150, y: 480, font: { family: 'Inter', weight: 400, size: 22, style: 'normal' }, align: 'left' },
+
+    // Coluna Direita - QR Code
+    { type: 'text', id: 'qr-instruction', text: 'Leia o QR-CODE para\\nenviar o pix da coleta', x: 960, y: 280, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'center', maxWidth: 380 },
+
+    // Moldura vermelha ao redor do QR
+    { type: 'box', x: 758, y: 338, w: 404, h: 404, stroke: '#CC0000', strokeWidth: 6, fill: 'transparent' },
+
+    // Linha separadora antes da seção inferior
+    { type: 'rule', style: 'dashed', x: 150, y: 820, w: 940, h: 2, dash: [10, 6] },
+
+    // Seção inferior - Instruções
+    { type: 'text', id: 'instruction', text: 'ACRESCENTE OS CENTAVOS COMO\\nCÓDIGO IDENTIFICADOR DO PIX:', x: 150, y: 900, font: { family: 'Inter', weight: 700, size: 28, style: 'normal' }, align: 'left' },
+
+    // Valor em destaque
+    { type: 'text', id: 'value-display', text: 'VALOR: [ {{displayValue}} ]', x: 960, y: 900, font: { family: 'Inter', weight: 700, size: 32, style: 'normal' }, align: 'center' },
+
+    // Linha separadora
+    { type: 'rule', style: 'dashed', x: 150, y: 980, w: 940, h: 2, dash: [10, 6] },
+
+    // Dados PIX - Coluna Esquerda
+    { type: 'text', id: 'pix-name', text: '{{name}}', x: 150, y: 1060, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'pix-key', text: 'CHAVE PIX CNPJ: {{key}}', x: 150, y: 1110, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'pix-regional', text: 'REGIONAL: {{regionalName}}', x: 150, y: 1160, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'pix-purpose', text: 'FINALIDADE: {{purposeLabel}}', x: 150, y: 1210, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+
+    // Dados Bancários - Coluna Direita
+    { type: 'text', id: 'bank-info', text: '{{bank}}', x: 730, y: 1060, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'agency-info', text: 'Agência: {{agency}}', x: 730, y: 1110, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'account-info', text: 'Conta Corrente: {{account}}', x: 730, y: 1160, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+    { type: 'text', id: 'identifier-info', text: 'Identificador: {{txid}}', x: 730, y: 1210, font: { family: 'Inter', weight: 400, size: 24, style: 'normal' }, align: 'left' },
+
+    // Linha separadora final
+    { type: 'rule', style: 'dashed', x: 150, y: 1280, w: 940, h: 2, dash: [10, 6] },
   ],
   formSchema: [
     { id: 'name', label: 'Nome (recebedor)', type: 'text', required: true, maxLength: 25, normalize: 'upperNoAccent' },
-    { id: 'key', label: 'Chave PIX', type: 'text', required: true },
+    { id: 'key', label: 'Chave PIX (CNPJ)', type: 'text', required: true },
     { id: 'city', label: 'Cidade (payload)', type: 'text', required: true, maxLength: 15, normalize: 'upperNoAccent' },
+    { id: 'location', label: 'Localização da Igreja', type: 'text', placeholder: 'JARDIM BRASÍLIA', normalize: 'upperNoAccent' },
+    { id: 'regionalName', label: 'Nome da Regional', type: 'text', placeholder: 'PORTO NACIONAL' },
     { id: 'txid', label: 'Identificador (TXID)', type: 'text', required: true, maxLength: 25, normalize: 'upperNoAccent' },
     { id: 'amount', label: 'Valor (opcional)', type: 'currency' },
-    { id: 'displayValue', label: 'Valor (display no cartão)', type: 'text', placeholder: 'R$ 0,00' },
+    { id: 'displayValue', label: 'Valor (display no cartão)', type: 'text', placeholder: 'R$ ***,02' },
+    { id: 'purposeLabel', label: 'Finalidade', type: 'text', placeholder: 'COLETA GERAL' },
+    { id: 'bank', label: 'Banco', type: 'text', placeholder: 'Banco do Brasil - 001' },
+    { id: 'agency', label: 'Agência', type: 'text', placeholder: '1117-7' },
+    { id: 'account', label: 'Conta Corrente', type: 'text', placeholder: '41.741-6' },
   ],
   bindings: {
     payload: {
       name: '{{name}}',
-      key: '{{key}}', // Chave PIX (CNPJ ou similar)
+      key: '{{key}}',
       city: '{{city}}',
       txid: '{{txid}}',
       amount: '{{amount}}'

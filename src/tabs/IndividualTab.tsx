@@ -135,7 +135,7 @@ const IndividualTab: React.FC<IndividualTabProps> = ({
           warnings={warnings}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <QrPreview qrCodeValue={payload || undefined} txid={formData.txid} />
+          <QrPreview payload={payload || ''} txid={formData.txid} />
           <PayloadPreview payload={payload || undefined} txid={formData.txid} />
         </div>
       </div>
